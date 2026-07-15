@@ -1,0 +1,7 @@
+{
+  "name": "Mia App Gemini",
+  "short_name": "GeminiApp",
+  "start_url": "index.html",
+  "display": "fullscreen",
+  "orientation": "portrait"
+}
