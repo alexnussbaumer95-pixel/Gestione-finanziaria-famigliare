@@ -1,0 +1,1925 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>FamFin - Finanza Familiare Premium</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js per i grafici -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Lucide Icons per le icone moderne -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #0B131A;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: #0B131A;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #1E293B;
+      border-radius: 4px;
+    }
+    /* Animazioni fluide */
+    @keyframes slideIn {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes toastIn {
+      from { transform: translate(-50%, 20px); opacity: 0; }
+      to { transform: translate(-50%, 0); opacity: 1; }
+    }
+    .animate-slide-up {
+      animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .animate-toast {
+      animation: toastIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+  </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col justify-between max-w-md mx-auto border-x border-slate-800/80 relative shadow-2xl overflow-hidden bg-[#0B131A]">
+
+  <!-- Toast Notifiche Custom -->
+  <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-full max-w-xs px-4 pointer-events-none"></div>
+
+  <!-- Loading Overlay Globale -->
+  <div id="loading-overlay" class="fixed inset-0 bg-[#0B131A] z-[110] flex flex-col items-center justify-center space-y-4">
+    <div class="w-12 h-12 rounded-full border-4 border-cyan-500/20 border-t-cyan-400 animate-spin"></div>
+    <p class="text-xs text-slate-400 font-medium tracking-wide">Configurazione della connessione protetta...</p>
+  </div>
+
+  <!-- Dialog di Conferma Custom -->
+  <div id="confirm-modal" class="fixed inset-0 bg-black/75 z-[90] flex items-center justify-center p-4 hidden">
+    <div class="bg-[#131E29] border border-slate-800 rounded-2xl w-full max-w-xs p-5 space-y-4">
+      <div class="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 mx-auto">
+        <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+      </div>
+      <div class="text-center space-y-1">
+        <h3 class="text-sm font-bold text-slate-100" id="confirm-title">Sei sicuro?</h3>
+        <p class="text-xs text-slate-400" id="confirm-message">Questa azione non può essere annullata.</p>
+      </div>
+      <div class="flex gap-2 pt-1">
+        <button id="confirm-cancel-btn" class="w-1/2 bg-slate-800 text-slate-300 py-2 rounded-xl text-xs font-semibold hover:bg-slate-700 transition active:scale-95">Annulla</button>
+        <button id="confirm-ok-btn" class="w-1/2 bg-red-500 text-white py-2 rounded-xl text-xs font-bold hover:bg-red-600 transition active:scale-95">Conferma</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Schermata di Login / Registrazione Stanza -->
+  <div id="auth-screen" class="absolute inset-0 bg-[#0B131A] z-50 flex flex-col justify-between p-6 overflow-y-auto custom-scroll">
+    <div class="flex-1 flex flex-col justify-center items-center py-6">
+      <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-cyan-500 to-yellow-500 flex items-center justify-center text-slate-900 mb-5 shadow-lg shadow-cyan-500/10">
+        <i data-lucide="shield-check" class="w-8 h-8 text-slate-950"></i>
+      </div>
+      <h1 class="text-3xl font-black tracking-tight bg-gradient-to-r from-cyan-400 via-yellow-400 to-emerald-400 bg-clip-text text-transparent">FamFin</h1>
+      <p class="text-xs text-slate-400 mt-2 text-center max-w-xs">Il tuo bilancio familiare sincronizzato in tempo reale con accessi personali protetti.</p>
+      
+      <!-- Tab di Selezione: Accedi o Crea -->
+      <div class="w-full max-w-xs mt-6 grid grid-cols-2 bg-[#131E29] p-1 rounded-xl border border-slate-800/80">
+        <button onclick="setAuthMode('login')" id="tab-btn-login" class="py-1.5 text-xs font-bold rounded-lg text-[#EAB308] bg-[#0B131A] transition">Accedi</button>
+        <button onclick="setAuthMode('create')" id="tab-btn-create" class="py-1.5 text-xs font-bold rounded-lg text-slate-400 transition">Nuova Stanza</button>
+      </div>
+
+      <!-- Form di Accesso o Creazione -->
+      <div class="w-full mt-4 bg-[#131E29] border border-slate-800 rounded-2xl p-5 space-y-3.5 shadow-xl">
+        <div>
+          <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Nome Stanza Famiglia</label>
+          <input id="auth-family-name" type="text" placeholder="Es. Rossi Home" class="w-full bg-[#0B131A] border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 transition placeholder-slate-600">
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Password Stanza</label>
+          <input id="auth-family-password" type="password" placeholder="••••••••" class="w-full bg-[#0B131A] border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 transition placeholder-slate-600">
+        </div>
+        <div class="border-t border-slate-800/80 pt-3">
+          <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Tuo Nome / Username</label>
+          <input id="auth-user-name" type="text" placeholder="Es. Alex" class="w-full bg-[#0B131A] border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 transition placeholder-slate-600">
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex justify-between">
+            <span>Tuo PIN d'Accesso Personale</span>
+            <span class="text-[9px] text-[#EAB308] normal-case lowercase font-medium">ti protegge dagli altri membri</span>
+          </label>
+          <input id="auth-user-pin" type="password" maxlength="6" placeholder="PIN a 4 o 6 cifre" class="w-full bg-[#0B131A] border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 transition placeholder-slate-600 text-center tracking-widest">
+        </div>
+        <div class="pt-1.5">
+          <button onclick="submitAuth()" class="w-full bg-[#EAB308] hover:bg-[#D9A307] active:scale-[0.98] text-[#0B131A] font-extrabold py-3 rounded-xl transition text-xs flex items-center justify-center gap-2 shadow-lg shadow-yellow-500/5">
+            <span id="auth-submit-text">Accedi alla Stanza</span>
+            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="text-center text-[10px] text-slate-500 flex items-center justify-center gap-1 py-2">
+      <i data-lucide="lock" class="w-3.5 h-3.5"></i> Accesso autenticato crittografato e approvato dall'Admin
+    </div>
+  </div>
+
+  <!-- Schermata di Attesa Approvazione Admin -->
+  <div id="pending-approval-screen" class="absolute inset-0 bg-[#0B131A] z-50 flex flex-col justify-between p-6 hidden">
+    <div class="flex-1 flex flex-col justify-center items-center">
+      <div class="relative mb-6">
+        <div class="w-20 h-20 rounded-full bg-yellow-500/10 flex items-center justify-center text-yellow-500 border border-yellow-500/20">
+          <i data-lucide="hourglass" class="w-10 h-10 animate-spin" style="animation-duration: 3s;"></i>
+        </div>
+        <span class="absolute -top-1 -right-1 flex h-4 w-4">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-4 w-4 bg-yellow-500"></span>
+        </span>
+      </div>
+      <h2 class="text-lg font-bold text-slate-100 text-center">Richiesta inviata con successo!</h2>
+      <p class="text-xs text-slate-400 mt-2.5 text-center max-w-xs leading-relaxed">
+        L'utente <strong class="text-[#EAB308]" id="pending-username-label">Alex</strong> è in attesa di approvazione per la stanza <strong class="text-cyan-400" id="pending-room-label">Famiglia Rossi</strong>.
+      </p>
+      <div class="mt-8 bg-[#131E29] border border-slate-800 rounded-xl p-4 w-full max-w-xs text-center space-y-1">
+        <span class="text-[10px] uppercase font-bold text-slate-500 block">Stato Sincronizzazione</span>
+        <p class="text-[11px] font-semibold text-yellow-500">In attesa dell'azione dell'Admin...</p>
+        <span class="text-[9px] text-slate-400 block pt-1">Questa schermata si sbloccherà automaticamente appena l'Amministratore approverà la tua utenza.</span>
+      </div>
+    </div>
+    <div class="w-full max-w-xs mx-auto pb-4">
+      <button onclick="cancelPendingRequest()" class="w-full bg-slate-800 hover:bg-slate-700 py-2.5 rounded-xl text-xs font-bold text-slate-300 transition">
+        Annulla e Torna Indietro
+      </button>
+    </div>
+  </div>
+
+  <!-- Header dell'App -->
+  <header class="bg-[#131E29] border-b border-slate-800/80 px-4 py-3 flex items-center justify-between sticky top-0 z-40">
+    <div class="flex items-center gap-2.5">
+      <div class="w-9 h-9 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-400 border border-cyan-500/20 relative">
+        <i data-lucide="users" class="w-4.5 h-4.5"></i>
+        <span id="pending-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center hidden border border-[#131E29]">0</span>
+      </div>
+      <div>
+        <h2 id="header-family-name" class="text-sm font-black text-slate-100">Famiglia</h2>
+        <span class="text-[10px] text-slate-400 flex items-center gap-1">
+          <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+          <span>Accesso: <strong id="header-user-role" class="text-[#EAB308]">Admin</strong></span>
+        </span>
+      </div>
+    </div>
+    
+    <div class="flex items-center gap-1.5">
+      <!-- Identificativo dell'Utente Corrente -->
+      <div class="bg-[#0B131A] border border-slate-700/85 px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs">
+        <i data-lucide="user" class="w-3.5 h-3.5 text-yellow-500"></i>
+        <span id="current-user-badge" class="font-extrabold text-slate-100">Utente</span>
+      </div>
+      <button onclick="openMemberModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-300 transition active:scale-90 relative" title="Gestione Familiari">
+        <i data-lucide="settings" class="w-4 h-4"></i>
+        <span id="pending-dot" class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full hidden"></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Contenitore Principale -->
+  <main class="flex-1 overflow-y-auto px-4 py-4 pb-24 custom-scroll">
+
+    <!-- TAB 1: RIEPILOGO -->
+    <section id="screen-riepilogo" class="space-y-6">
+      <div class="flex justify-between items-center">
+        <h3 class="text-base font-bold text-slate-100 flex items-center gap-1.5">
+          <i data-lucide="layout-dashboard" class="w-4.5 h-4.5 text-cyan-400"></i>Il tuo Bilancio
+        </h3>
+        <div class="flex gap-2">
+          <button onclick="openTransferModal()" class="text-[11px] text-cyan-400 hover:underline flex items-center gap-1 font-semibold">
+            <i data-lucide="arrow-left-right" class="w-3.5 h-3.5"></i> Giroconto
+          </button>
+          <button onclick="openContoModal()" class="text-[11px] text-[#EAB308] hover:underline flex items-center gap-1 font-semibold">
+            <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Aggiungi Conto
+          </button>
+        </div>
+      </div>
+
+      <!-- Widget Grafici Rapidi -->
+      <div class="bg-[#131E29] border border-slate-800/80 rounded-2xl p-4 space-y-4 shadow-lg">
+        <div>
+          <div class="flex justify-between text-xs font-semibold text-slate-400 mb-1.5">
+            <span class="flex items-center gap-1"><i data-lucide="trending-down" class="w-3.5 h-3.5 text-red-400"></i> Spese Totali Mese</span>
+            <span id="overview-spent-val" class="text-red-400 font-bold">0.00 €</span>
+          </div>
+          <div class="w-full bg-[#0B131A] h-2.5 rounded-full overflow-hidden">
+            <div id="overview-spent-bar" class="bg-red-400 h-full transition-all duration-500 rounded-full" style="width: 0%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between text-xs font-semibold text-slate-400 mb-1.5">
+            <span class="flex items-center gap-1"><i data-lucide="wallet" class="w-3.5 h-3.5 text-emerald-400"></i> Disponibilità Totale Conti</span>
+            <span id="overview-balance-val" class="text-emerald-400 font-bold">0.00 €</span>
+          </div>
+          <div class="w-full bg-[#0B131A] h-2.5 rounded-full overflow-hidden">
+            <div id="overview-balance-bar" class="bg-emerald-400 h-full transition-all duration-500 rounded-full" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modulo Nuova Transazione Rapida (In Home) -->
+      <div class="bg-[#131E29] border border-slate-800/80 rounded-2xl p-4 shadow-lg space-y-3.5">
+        <h4 class="text-xs font-bold uppercase text-slate-400 tracking-wider flex items-center gap-1.5">
+          <i data-lucide="zap" class="w-4 h-4 text-yellow-500 animate-pulse"></i> Registrazione Rapida
+        </h4>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="setQuickTxType('uscita')" id="quick-btn-uscita" class="bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 rounded-xl py-2 text-xs font-bold transition">Uscita (Spesa)</button>
+          <button onclick="setQuickTxType('entrata')" id="quick-btn-entrata" class="bg-slate-800 text-slate-400 border border-transparent rounded-xl py-2 text-xs font-bold transition">Entrata</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-[9px] text-slate-400 uppercase font-bold mb-1">Descrizione</label>
+            <input id="quick-tx-desc" type="text" placeholder="Es. Spesa, Benzina" class="w-full bg-[#0B131A] border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 placeholder-slate-600">
+          </div>
+          <div>
+            <label class="block text-[9px] text-slate-400 uppercase font-bold mb-1">Importo (€)</label>
+            <input id="quick-tx-amount" type="number" step="0.01" placeholder="0.00" class="w-full bg-[#0B131A] border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 placeholder-slate-600">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-[9px] text-slate-400 uppercase font-bold mb-1">Conto Associato</label>
+            <select id="quick-tx-account" class="w-full bg-[#0B131A] border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"></select>
+          </div>
+          <div>
+            <label class="block text-[9px] text-slate-400 uppercase font-bold mb-1">Categoria</label>
+            <select id="quick-tx-category" class="w-full bg-[#0B131A] border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500">
+              <option value="Cibo">Cibo / Supermercato</option>
+              <option value="Auto">Auto / Trasporti</option>
+              <option value="Intrattenimento">Svago / Streaming</option>
+              <option value="Bollette">Utenze / Bollette</option>
+              <option value="Lavoro">Lavoro / Stipendio</option>
+            </select>
+          </div>
+        </div>
+        <button onclick="saveQuickTransazione()" class="w-full bg-[#EAB308] hover:bg-[#D9A307] text-[#0B131A] font-extrabold py-2.5 rounded-xl text-xs transition active:scale-[0.98] flex items-center justify-center gap-1.5 shadow-lg shadow-yellow-500/10">
+          <i data-lucide="check-circle" class="w-4 h-4"></i> Registra Movimento
+        </button>
+      </div>
+
+      <!-- Lista dei Conti Dinamici -->
+      <div class="space-y-3">
+        <h4 class="text-[11px] font-bold uppercase text-slate-500 tracking-wider">I tuoi conti attivi</h4>
+        <div id="accounts-list-container" class="space-y-2.5"></div>
+      </div>
+    </section>
+
+    <!-- TAB 2: PAGAMENTI -->
+    <section id="screen-pagamenti" class="space-y-6 hidden">
+      <div class="flex justify-between items-center">
+        <h3 class="text-base font-bold text-slate-100 flex items-center gap-1.5">
+          <i data-lucide="calendar" class="w-4.5 h-4.5 text-cyan-400"></i>Pagamenti & Obiettivi
+        </h3>
+        <button onclick="openObiettivoModal()" class="text-xs text-[#EAB308] hover:underline flex items-center gap-1 font-semibold">
+          <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Nuovo Obiettivo
+        </button>
+      </div>
+
+      <!-- Calendario Mensile Dinamico -->
+      <div class="bg-[#131E29] border border-slate-800 rounded-2xl p-4 shadow-lg">
+        <div class="flex justify-between items-center mb-4">
+          <button onclick="navigateMonth(-1)" class="p-1 hover:bg-slate-800 rounded-lg text-slate-400 transition"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+          <span id="calendar-month-title" class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">Mese Anno</span>
+          <button onclick="navigateMonth(1)" class="p-1 hover:bg-slate-800 rounded-lg text-slate-400 transition"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+        </div>
+        <div class="grid grid-cols-7 gap-1 text-center text-[10px] text-slate-500 font-bold mb-2">
+          <span>LUN</span><span>MAR</span><span>MER</span><span>GIO</span><span>VEN</span><span>SAB</span><span>DOM</span>
+        </div>
+        <div id="calendar-days-grid" class="grid grid-cols-7 gap-1 text-center"></div>
+      </div>
+
+      <!-- Lista Obiettivi di Risparmio -->
+      <div class="space-y-3">
+        <h4 class="text-[11px] font-bold uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
+          <i data-lucide="piggy-bank" class="w-4 h-4 text-yellow-500"></i> Obiettivi di Risparmio
+        </h4>
+        <div id="savings-goals-container" class="space-y-3"></div>
+      </div>
+
+      <!-- Scadenze e Promemoria Addebiti -->
+      <div class="space-y-3">
+        <h4 class="text-[11px] font-bold uppercase text-slate-500 tracking-wider">Scadenze Ricorrenti Attive</h4>
+        <div id="reminders-container" class="space-y-2.5"></div>
+      </div>
+    </section>
+
+    <!-- TAB 3: CATEGORIE -->
+    <section id="screen-categorie" class="space-y-6 hidden">
+      <h3 class="text-base font-bold text-slate-100 flex items-center gap-1.5">
+        <i data-lucide="tag" class="w-4.5 h-4.5 text-cyan-400"></i>Filtro Categorie
+      </h3>
+
+      <!-- Griglia Categorie -->
+      <div class="grid grid-cols-4 gap-2.5">
+        <button onclick="filterByCategory('Cibo')" class="bg-[#131E29] hover:bg-slate-800 border border-slate-800/80 rounded-xl p-3 flex flex-col items-center gap-1.5 transition active:scale-95">
+          <div class="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500">
+            <i data-lucide="shopping-cart" class="w-4 h-4"></i>
+          </div>
+          <span class="text-[10px] font-bold">Cibo</span>
+        </button>
+        <button onclick="filterByCategory('Auto')" class="bg-[#131E29] hover:bg-slate-800 border border-slate-800/80 rounded-xl p-3 flex flex-col items-center gap-1.5 transition active:scale-95">
+          <div class="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
+            <i data-lucide="car" class="w-4 h-4"></i>
+          </div>
+          <span class="text-[10px] font-bold">Auto</span>
+        </button>
+        <button onclick="filterByCategory('Intrattenimento')" class="bg-[#131E29] hover:bg-slate-800 border border-slate-800/80 rounded-xl p-3 flex flex-col items-center gap-1.5 transition active:scale-95">
+          <div class="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-500">
+            <i data-lucide="tv" class="w-4 h-4"></i>
+          </div>
+          <span class="text-[10px] font-bold">Svago</span>
+        </button>
+        <button onclick="filterByCategory('Bollette')" class="bg-[#131E29] hover:bg-slate-800 border border-slate-800/80 rounded-xl p-3 flex flex-col items-center gap-1.5 transition active:scale-95">
+          <div class="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
+            <i data-lucide="zap" class="w-4 h-4"></i>
+          </div>
+          <span class="text-[10px] font-bold">Bollette</span>
+        </button>
+      </div>
+
+      <!-- Transazioni Filtrate -->
+      <div class="space-y-3">
+        <div class="flex justify-between items-center">
+          <h4 id="filter-category-title" class="text-[11px] font-bold uppercase text-slate-500 tracking-wider">Seleziona una categoria per vedere i dettagli</h4>
+          <button onclick="clearCategoryFilter()" id="clear-filter-btn" class="text-[10px] text-cyan-400 hover:underline hidden">Mostra tutte</button>
+        </div>
+        <div id="category-transactions-container" class="space-y-2.5"></div>
+      </div>
+    </section>
+
+    <!-- TAB 4: STATISTICHE -->
+    <section id="screen-statistiche" class="space-y-6 hidden">
+      <div class="flex justify-between items-center">
+        <h3 class="text-base font-bold text-slate-100 flex items-center gap-1.5">
+          <i data-lucide="pie-chart" class="w-4.5 h-4.5 text-cyan-400"></i>Analisi Spese
+        </h3>
+        
+        <!-- Filtro Anno/Mese -->
+        <div class="flex gap-1.5">
+          <select id="stats-year" onchange="renderStatsCharts()" class="bg-[#131E29] border border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-300 focus:outline-none focus:border-cyan-500">
+            <option value="2026">2026</option>
+            <option value="2025">2025</option>
+          </select>
+          <select id="stats-month" onchange="renderStatsCharts()" class="bg-[#131E29] border border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-300 focus:outline-none focus:border-cyan-500">
+            <option value="ALL">Tutto l'anno</option>
+            <option value="07">Luglio</option>
+            <option value="06">Giugno</option>
+            <option value="05">Maggio</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Grafico a Torta -->
+      <div class="bg-[#131E29] border border-slate-800 rounded-2xl p-4 flex flex-col items-center shadow-lg">
+        <span class="text-xs font-bold text-slate-400 mb-4 uppercase tracking-wide">Suddivisione per Categoria</span>
+        <div class="w-44 h-44 relative">
+          <canvas id="categoryPieChart"></canvas>
+        </div>
+        <div id="stats-chart-legend" class="w-full mt-4 grid grid-cols-2 gap-2 text-[10px] text-slate-300"></div>
+      </div>
+
+      <!-- Chi Ha Speso Quanto -->
+      <div class="bg-[#131E29] border border-slate-800 rounded-2xl p-4 space-y-4 shadow-lg">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wide block">Ripartizione Spese per Utente</span>
+        <div id="users-distribution-container" class="space-y-3"></div>
+      </div>
+    </section>
+
+    <!-- TAB 5: LISTA -->
+    <section id="screen-lista" class="space-y-4 hidden">
+      <div class="flex justify-between items-center">
+        <h3 class="text-base font-bold text-slate-100 flex items-center gap-1.5">
+          <i data-lucide="list" class="w-4.5 h-4.5 text-cyan-400"></i>Transazioni
+        </h3>
+        <button onclick="openTransazioneModal()" class="bg-[#EAB308] hover:bg-[#D9A307] active:scale-95 text-[#0B131A] font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition shadow-lg shadow-yellow-500/10">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nuova Transazione
+        </button>
+      </div>
+
+      <!-- Filtri di Ricerca e Selezione Rapida -->
+      <div class="flex gap-2">
+        <div class="relative flex-1">
+          <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"></i>
+          <input id="search-tx" oninput="updateTransactionsList()" type="text" placeholder="Cerca transazione..." class="w-full bg-[#131E29] border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 placeholder-slate-500">
+        </div>
+        <select id="filter-category" onchange="updateTransactionsList()" class="bg-[#131E29] border border-slate-800 rounded-xl px-2 py-2 text-xs text-slate-300 focus:outline-none focus:border-cyan-500">
+          <option value="ALL">Tutte</option>
+          <option value="Cibo">Cibo</option>
+          <option value="Auto">Auto</option>
+          <option value="Intrattenimento">Svago</option>
+          <option value="Bollette">Bollette</option>
+          <option value="Lavoro">Lavoro</option>
+          <option value="Giroconto">Giroconto</option>
+        </select>
+      </div>
+
+      <!-- Registro Movimenti -->
+      <div class="bg-[#131E29] border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
+        <div class="px-4 py-3 border-b border-slate-800 bg-[#162330] flex justify-between items-center">
+          <span class="text-xs font-bold text-slate-300">Registro Movimenti</span>
+          <span id="total-transactions-count" class="text-[10px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-2 py-0.5 rounded-full font-bold">0</span>
+        </div>
+        <div id="all-transactions-container" class="divide-y divide-slate-800/60 max-h-[380px] overflow-y-auto custom-scroll"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Navigation Bar Inferiore -->
+  <nav class="bg-[#131E29] border-t border-slate-800 fixed bottom-0 left-0 right-0 max-w-md mx-auto z-40 flex justify-around py-3 px-2">
+    <button onclick="switchTab('riepilogo')" id="tab-riepilogo" class="flex flex-col items-center gap-1 text-cyan-400 transition active:scale-90">
+      <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+      <span class="text-[9px] font-bold">Riepilogo</span>
+    </button>
+    <button onclick="switchTab('pagamenti')" id="tab-pagamenti" class="flex flex-col items-center gap-1 text-slate-500 transition active:scale-90">
+      <i data-lucide="wallet" class="w-5 h-5"></i>
+      <span class="text-[9px] font-bold">Pagamenti</span>
+    </button>
+    <button onclick="switchTab('categorie')" id="tab-categorie" class="flex flex-col items-center gap-1 text-slate-500 transition active:scale-90">
+      <i data-lucide="tag" class="w-5 h-5"></i>
+      <span class="text-[9px] font-bold">Categorie</span>
+    </button>
+    <button onclick="switchTab('statistiche')" id="tab-statistiche" class="flex flex-col items-center gap-1 text-slate-500 transition active:scale-90">
+      <i data-lucide="pie-chart" class="w-5 h-5"></i>
+      <span class="text-[9px] font-bold">Statistiche</span>
+    </button>
+    <button onclick="switchTab('lista')" id="tab-lista" class="flex flex-col items-center gap-1 text-slate-500 transition active:scale-90">
+      <i data-lucide="list" class="w-5 h-5"></i>
+      <span class="text-[9px] font-bold">Lista</span>
+    </button>
+  </nav>
+
+  <!-- MODAL: Aggiungi Conto -->
+  <div id="conto-modal" class="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-[#131E29] border border-slate-800 rounded-2xl w-full max-w-xs p-5 space-y-4 animate-slide-up">
+      <h3 class="text-sm font-bold text-slate-100 flex items-center gap-1.5">
+        <i data-lucide="plus-circle" class="text-[#EAB308] w-4.5 h-4.5"></i> Nuovo Conto / Carta
+      </h3>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Nome del Conto</label>
+          <input id="conto-name" type="text" placeholder="Es. Personal N26" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 placeholder-slate-600">
+        </div>
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Saldo Iniziale (€)</label>
+          <input id="conto-balance" type="number" step="0.01" placeholder="Es. 2500" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 placeholder-slate-600">
+        </div>
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Tipologia Conto</label>
+          <select id="conto-type" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500">
+            <option value="carta">Conto Corrente / Carta</option>
+            <option value="contanti">Contanti / Portafoglio</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1 flex justify-between">
+            <span>Proprietario del Conto</span>
+            <span class="text-[9px] text-[#EAB308] normal-case font-bold">Privacy</span>
+          </label>
+          <select id="conto-owner" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500">
+            <option value="shared">Condiviso con tutta la Famiglia</option>
+            <!-- Caricato dinamicamente via JS -->
+          </select>
+          <span class="text-[9px] text-slate-400 block mt-1 leading-normal">Se privato, solo il proprietario vedrà il saldo. Per tutti gli altri sarà oscurato.</span>
+        </div>
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button onclick="closeContoModal()" class="w-1/2 bg-slate-800 text-slate-300 py-2 rounded-xl text-xs font-semibold hover:bg-slate-700 transition active:scale-95">Annulla</button>
+        <button onclick="saveConto()" class="w-1/2 bg-[#EAB308] text-[#0B131A] py-2 rounded-xl text-xs font-bold hover:bg-[#D9A307] transition active:scale-95">Salva</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Aggiungi Obiettivo di Risparmio -->
+  <div id="obiettivo-modal" class="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-[#131E29] border border-slate-800 rounded-2xl w-full max-w-xs p-5 space-y-4 animate-slide-up">
+      <h3 class="text-sm font-bold text-slate-100 flex items-center gap-1.5">
+        <i data-lucide="piggy-bank" class="text-cyan-400 w-4.5 h-4.5"></i> Nuovo Conto Obiettivo
+      </h3>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Nome dell'obiettivo</label>
+          <input id="obiettivo-name" type="text" placeholder="Es. Risparmio Mac" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 placeholder-slate-600">
+        </div>
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Fondo Attuale (€)</label>
+          <input id="obiettivo-balance" type="number" step="0.01" placeholder="Es. 150" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 placeholder-slate-600">
+        </div>
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Traguardo Finale (€)</label>
+          <input id="obiettivo-goal" type="number" step="0.01" placeholder="Es. 2000" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 placeholder-slate-600">
+        </div>
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button onclick="closeObiettivoModal()" class="w-1/2 bg-slate-800 text-slate-300 py-2 rounded-xl text-xs font-semibold hover:bg-slate-700 transition active:scale-95">Annulla</button>
+        <button onclick="saveObiettivo()" class="w-1/2 bg-[#EAB308] text-[#0B131A] py-2 rounded-xl text-xs font-bold hover:bg-[#D9A307] transition active:scale-95">Crea</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Nuova Transazione (Tabella Dedicata) -->
+  <div id="transazione-modal" class="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-[#131E29] border border-slate-800 rounded-2xl w-full max-w-xs p-5 space-y-4 animate-slide-up">
+      <h3 class="text-sm font-bold text-slate-100">Nuova Transazione</h3>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Tipo Movimento</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="setTransactionType('uscita')" id="btn-type-uscita" class="bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 rounded-lg py-1.5 text-xs font-bold">Uscita</button>
+            <button onclick="setTransactionType('entrata')" id="btn-type-entrata" class="bg-slate-800 text-slate-400 border border-transparent rounded-lg py-1.5 text-xs font-bold">Entrata</button>
+          </div>
+        </div>
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Descrizione</label>
+          <input id="tx-desc" type="text" placeholder="Es. Spesa Esselunga" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 placeholder-slate-600">
+        </div>
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Importo (€)</label>
+          <input id="tx-amount" type="number" step="0.01" placeholder="Es. 45.50" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 placeholder-slate-600">
+        </div>
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Conto di Addebito/Accredito</label>
+          <select id="tx-account" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"></select>
+        </div>
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Categoria</label>
+          <select id="tx-category" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500">
+            <option value="Cibo">Cibo / Supermercato</option>
+            <option value="Auto">Auto / Trasporti</option>
+            <option value="Intrattenimento">Svago / Streaming</option>
+            <option value="Bollette">Utenze / Bollette</option>
+            <option value="Lavoro">Lavoro / Stipendio</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Transazione Ricorrente?</label>
+          <select id="tx-recurring" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500">
+            <option value="no">No, Singola</option>
+            <option value="mensile">Sì, Mensile</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button onclick="closeTransazioneModal()" class="w-1/2 bg-slate-800 text-slate-300 py-2 rounded-xl text-xs font-semibold hover:bg-slate-700 transition active:scale-95">Annulla</button>
+        <button onclick="saveTransazione()" class="w-1/2 bg-[#EAB308] text-[#0B131A] py-2 rounded-xl text-xs font-bold hover:bg-[#D9A307] transition active:scale-95">Inserisci</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Gestione Membri Famiglia (Nuovo Pannello Modificabile & Approvazioni) -->
+  <div id="member-modal" class="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-[#131E29] border border-slate-800 rounded-2xl w-full max-w-xs p-5 space-y-4 animate-slide-up">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+        <h3 class="text-sm font-bold text-slate-100 flex items-center gap-1.5">
+          <i data-lucide="users-round" class="text-[#EAB308] w-4.5 h-4.5"></i> Gestione Familiari
+        </h3>
+        <button onclick="closeMemberModal()" class="text-slate-400 hover:text-slate-100">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      
+      <!-- SEZIONE APPROVAZIONI (Visibile Solo ad Admin) -->
+      <div id="admin-approvals-section" class="space-y-2 hidden">
+        <h4 class="text-[10px] font-black uppercase text-yellow-500 tracking-wider flex items-center gap-1">
+          <i data-lucide="bell" class="w-3.5 h-3.5"></i> Richieste Pendenti
+        </h4>
+        <div id="approvals-manage-list" class="space-y-1.5 max-h-32 overflow-y-auto custom-scroll">
+          <!-- Caricato dinamicamente -->
+        </div>
+        <div class="border-b border-slate-800 pb-2 mb-2"></div>
+      </div>
+
+      <!-- Lista Familiari con modifica nome ed eliminazione -->
+      <div class="space-y-2">
+        <h4 class="text-[10px] font-black uppercase text-slate-400 tracking-wider">Membri Approvati</h4>
+        <div class="space-y-2 max-h-40 overflow-y-auto custom-scroll" id="members-manage-list">
+          <!-- Generato Dinamicamente -->
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-2 gap-2">
+        <button onclick="logout()" class="bg-red-500/10 text-red-400 border border-red-500/20 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-500 hover:text-white transition">Esci dalla Stanza</button>
+        <button onclick="closeMemberModal()" class="bg-slate-800 text-slate-300 px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-slate-700 transition">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Giroconto / Trasferimento -->
+  <div id="transfer-modal" class="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-[#131E29] border border-slate-800 rounded-2xl w-full max-w-xs p-5 space-y-4 animate-slide-up">
+      <h3 class="text-sm font-bold text-slate-100 flex items-center gap-1.5">
+        <i data-lucide="arrow-left-right" class="text-cyan-400 w-4.5 h-4.5"></i> Nuovo Giroconto
+      </h3>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Conto di Origine (Da)</label>
+          <select id="transfer-from-account" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"></select>
+        </div>
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Conto di Destinazione (A)</label>
+          <select id="transfer-to-account" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"></select>
+        </div>
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Importo (€)</label>
+          <input id="transfer-amount" type="number" step="0.01" placeholder="Es. 100.00" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 placeholder-slate-600">
+        </div>
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button onclick="closeTransferModal()" class="w-1/2 bg-slate-800 text-slate-300 py-2 rounded-xl text-xs font-semibold hover:bg-slate-700 transition active:scale-95">Annulla</button>
+        <button onclick="saveTransfer()" class="w-1/2 bg-[#EAB308] text-[#0B131A] py-2 rounded-xl text-xs font-bold hover:bg-[#D9A307] transition active:scale-95">Esegui</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Script di inizializzazione moduli database Firebase -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // Variabili ambientali sicure
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'famfin-premium-realtime';
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+      apiKey: "",
+      authDomain: "mock-auth-domain",
+      projectId: "mock-project-id",
+      storageBucket: "mock-bucket",
+      messagingSenderId: "mock-sender",
+      appId: "mock-app-id"
+    };
+
+    let app, db, auth;
+    let isOfflineFallback = false;
+
+    // Inizializzazione Firebase con Fallback Locale
+    try {
+      app = initializeApp(firebaseConfig);
+      db = getFirestore(app);
+      auth = getAuth(app);
+    } catch (e) {
+      console.warn("Utilizzo del fallback local in-memory per mancata configurazione online:", e);
+      isOfflineFallback = true;
+    }
+
+    // Stato locale sincronizzato
+    let currentUser = null; // { roomId, username, role, status }
+    let accounts = [];
+    let transactions = [];
+    let members = [];
+    let hiddenAccounts = JSON.parse(localStorage.getItem('fam_hidden_accounts')) || [];
+    let authMode = 'login'; // 'login' | 'create'
+    let currentTxType = 'uscita';
+    let quickTxType = 'uscita';
+    let statsChart = null;
+    let calendarDate = new Date(2026, 6, 15); // Default Luglio 2026
+
+    // Sottoscrizioni Firestore
+    let unsubMembers = null;
+    let unsubAccounts = null;
+    let unsubTransactions = null;
+    let unsubPendingSelf = null;
+
+    // Sistema Notifiche Toast Custom
+    function showNotification(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      let bgClass = 'bg-[#132E2C] text-cyan-400 border border-cyan-500/20';
+      let icon = 'check-circle';
+      if (type === 'error') {
+        bgClass = 'bg-[#2E181D] text-red-400 border border-red-500/20';
+        icon = 'x-circle';
+      } else if (type === 'info') {
+        bgClass = 'bg-[#18232E] text-yellow-400 border border-yellow-500/20';
+        icon = 'info';
+      }
+      toast.className = `${bgClass} p-3 rounded-xl text-xs font-bold shadow-2xl flex items-center gap-2 mb-2 animate-toast pointer-events-auto`;
+      toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 flex-shrink-0"></i><span>${message}</span>`;
+      container.appendChild(toast);
+      lucide.createIcons();
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translate(-50%, -10px)';
+        toast.style.transition = 'all 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    // Modal di Conferma Custom
+    function showConfirm(title, message, onConfirm) {
+      const modal = document.getElementById('confirm-modal');
+      document.getElementById('confirm-title').innerText = title;
+      document.getElementById('confirm-message').innerText = message;
+      modal.classList.remove('hidden');
+      const btnOk = document.getElementById('confirm-ok-btn');
+      const btnCancel = document.getElementById('confirm-cancel-btn');
+      const cleanup = () => {
+        modal.classList.add('hidden');
+        btnOk.onclick = null;
+        btnCancel.onclick = null;
+      };
+      btnOk.onclick = () => { onConfirm(); cleanup(); };
+      btnCancel.onclick = cleanup;
+    }
+
+    // Caricamento Iniziale e Autenticazione Anonima Primaria
+    window.onload = async function() {
+      lucide.createIcons();
+      document.getElementById('loading-overlay').style.display = 'flex';
+      
+      if (!isOfflineFallback) {
+        try {
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(auth, __initial_auth_token);
+          } else {
+            await signInAnonymously(auth);
+          }
+          console.log("Autenticazione Firebase avvenuta.");
+        } catch (err) {
+          console.error("Errore autenticazione online, attivazione backup locale.", err);
+          isOfflineFallback = true;
+        }
+      }
+      
+      document.getElementById('loading-overlay').style.display = 'none';
+      checkSession();
+    };
+
+    function checkSession() {
+      const savedUser = localStorage.getItem('famfin_user_session');
+      if (savedUser) {
+        currentUser = JSON.parse(savedUser);
+        if (isOfflineFallback) {
+          loadOfflineMockData();
+          loginSuccess();
+        } else {
+          // Monitoriamo lo stato online
+          checkOnlineApprovalAndLogin();
+        }
+      }
+    }
+
+    // Selettore della modalità di autenticazione
+    window.setAuthMode = function(mode) {
+      authMode = mode;
+      const bLogin = document.getElementById('tab-btn-login');
+      const bCreate = document.getElementById('tab-btn-create');
+      const submitText = document.getElementById('auth-submit-text');
+      if (mode === 'login') {
+        bLogin.className = "py-1.5 text-xs font-bold rounded-lg text-[#EAB308] bg-[#0B131A] transition";
+        bCreate.className = "py-1.5 text-xs font-bold rounded-lg text-slate-400 transition";
+        submitText.innerText = "Accedi alla Stanza";
+      } else {
+        bCreate.className = "py-1.5 text-xs font-bold rounded-lg text-[#EAB308] bg-[#0B131A] transition";
+        bLogin.className = "py-1.5 text-xs font-bold rounded-lg text-slate-400 transition";
+        submitText.innerText = "Crea Famiglia & Stanza";
+      }
+    };
+
+    // Invio form di autenticazione
+    window.submitAuth = async function() {
+      const roomName = document.getElementById('auth-family-name').value.trim();
+      const roomPassword = document.getElementById('auth-family-password').value.trim();
+      const userName = document.getElementById('auth-user-name').value.trim();
+      const userPin = document.getElementById('auth-user-pin').value.trim();
+
+      if (!roomName || !roomPassword || !userName || !userPin) {
+        showNotification("Completa tutti i campi per accedere!", "error");
+        return;
+      }
+
+      document.getElementById('loading-overlay').style.display = 'flex';
+
+      const roomId = roomName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+      const memberId = `${roomId}_${userName.toLowerCase()}`;
+
+      if (isOfflineFallback) {
+        // Logica Offline Simulatore
+        handleOfflineAuth(roomId, roomName, roomPassword, userName, userPin);
+        document.getElementById('loading-overlay').style.display = 'none';
+        return;
+      }
+
+      try {
+        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+        const roomSnap = await getDoc(roomRef);
+
+        if (authMode === 'create') {
+          if (roomSnap.exists()) {
+            showNotification("Nome stanza già in uso! Scegline un altro.", "error");
+            document.getElementById('loading-overlay').style.display = 'none';
+            return;
+          }
+          // Crea Nuova Stanza (Utente diventa automaticamente Admin approvato)
+          await setDoc(roomRef, {
+            id: roomId,
+            name: roomName,
+            password: roomPassword,
+            admin: userName
+          });
+
+          const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', memberId);
+          const memberData = {
+            id: memberId,
+            roomId: roomId,
+            username: userName,
+            pin: userPin,
+            role: 'admin',
+            status: 'approved'
+          };
+          await setDoc(memberRef, memberData);
+
+          currentUser = memberData;
+          localStorage.setItem('famfin_user_session', JSON.stringify(currentUser));
+          loginSuccess();
+          showNotification(`Stanza ${roomName} creata con successo! Sei l'Amministratore.`);
+        } else {
+          // Modalità ACCESSO / LOGIN
+          if (!roomSnap.exists()) {
+            showNotification("La stanza specificata non esiste!", "error");
+            document.getElementById('loading-overlay').style.display = 'none';
+            return;
+          }
+          const roomData = roomSnap.data();
+          if (roomData.password !== roomPassword) {
+            showNotification("Password della stanza non corretta!", "error");
+            document.getElementById('loading-overlay').style.display = 'none';
+            return;
+          }
+
+          const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', memberId);
+          const memberSnap = await getDoc(memberRef);
+
+          if (memberSnap.exists()) {
+            const mData = memberSnap.data();
+            if (mData.pin !== userPin) {
+              showNotification("PIN personale errato per questo familiare!", "error");
+              document.getElementById('loading-overlay').style.display = 'none';
+              return;
+            }
+            if (mData.status === 'pending') {
+              currentUser = mData;
+              showPendingScreen(roomName, userName);
+            } else {
+              currentUser = mData;
+              localStorage.setItem('famfin_user_session', JSON.stringify(currentUser));
+              loginSuccess();
+            }
+          } else {
+            // Primo accesso: Richiesta Pendente automatica da approvare dall'Admin
+            const newMember = {
+              id: memberId,
+              roomId: roomId,
+              username: userName,
+              pin: userPin,
+              role: 'user',
+              status: 'pending'
+            };
+            await setDoc(memberRef, newMember);
+            currentUser = newMember;
+            showPendingScreen(roomName, userName);
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        showNotification("Errore di rete online. Attivazione fallback offline.", "error");
+        isOfflineFallback = true;
+        handleOfflineAuth(roomId, roomName, roomPassword, userName, userPin);
+      }
+      document.getElementById('loading-overlay').style.display = 'none';
+    };
+
+    function showPendingScreen(roomName, userName) {
+      document.getElementById('auth-screen').classList.add('hidden');
+      document.getElementById('pending-approval-screen').classList.remove('hidden');
+      document.getElementById('pending-username-label').innerText = userName;
+      document.getElementById('pending-room-label').innerText = roomName;
+
+      // Ascolto attivo per l'approvazione immediata senza ricaricare la pagina
+      if (!isOfflineFallback) {
+        const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', currentUser.id);
+        unsubPendingSelf = onSnapshot(memberRef, (snap) => {
+          if (snap.exists()) {
+            const mData = snap.data();
+            if (mData.status === 'approved') {
+              currentUser = mData;
+              localStorage.setItem('famfin_user_session', JSON.stringify(currentUser));
+              if (unsubPendingSelf) unsubPendingSelf();
+              document.getElementById('pending-approval-screen').classList.add('hidden');
+              loginSuccess();
+              showNotification("La tua richiesta è stata approvata dall'Admin!");
+            }
+          }
+        }, (err) => {
+          console.error("Errore monitoraggio approvazione:", err);
+        });
+      }
+    }
+
+    window.cancelPendingRequest = async function() {
+      if (unsubPendingSelf) unsubPendingSelf();
+      if (!isOfflineFallback && currentUser) {
+        try {
+          const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', currentUser.id);
+          await deleteDoc(memberRef);
+        } catch (e) { console.error(e); }
+      }
+      currentUser = null;
+      localStorage.removeItem('famfin_user_session');
+      document.getElementById('pending-approval-screen').classList.add('hidden');
+      document.getElementById('auth-screen').classList.remove('hidden');
+    };
+
+    function checkOnlineApprovalAndLogin() {
+      const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', currentUser.id);
+      getDoc(memberRef).then(snap => {
+        if (snap.exists()) {
+          const mData = snap.data();
+          if (mData.status === 'pending') {
+            showPendingScreen(currentUser.roomId, currentUser.username);
+          } else {
+            loginSuccess();
+          }
+        } else {
+          logout();
+        }
+      }).catch(() => {
+        isOfflineFallback = true;
+        loadOfflineMockData();
+        loginSuccess();
+      });
+    }
+
+    function loginSuccess() {
+      document.getElementById('auth-screen').classList.add('hidden');
+      document.getElementById('pending-approval-screen').classList.add('hidden');
+      document.getElementById('header-user-role').innerText = currentUser.role === 'admin' ? 'Amministratore' : 'Familiare';
+      document.getElementById('current-user-badge').innerText = currentUser.username;
+      
+      // Caricamento stanza reale
+      if (isOfflineFallback) {
+        document.getElementById('header-family-name').innerText = "Simulazione Locale";
+        initDataListeners();
+      } else {
+        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', currentUser.roomId);
+        getDoc(roomRef).then(snap => {
+          if (snap.exists()) {
+            document.getElementById('header-family-name').innerText = snap.data().name;
+          }
+          initDataListeners();
+        });
+      }
+    }
+
+    // Ascoltatori Dinamici in Tempo Reale
+    function initDataListeners() {
+      if (isOfflineFallback) {
+        updateAllDashboardUI();
+        return;
+      }
+
+      const mQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'members'), where('roomId', '==', currentUser.roomId));
+      unsubMembers = onSnapshot(mQuery, (snap) => {
+        members = [];
+        snap.forEach(doc => members.push(doc.data()));
+        updateMembersUI();
+        updateContoOwnerDropdown();
+      }, (err) => console.error(err));
+
+      const aQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'accounts'), where('roomId', '==', currentUser.roomId));
+      unsubAccounts = onSnapshot(aQuery, (snap) => {
+        accounts = [];
+        snap.forEach(doc => accounts.push(doc.data()));
+        updateAccountsAndOverview();
+        updateObiettivi();
+        populateAccountSelectors();
+        populateTransferSelectors();
+      }, (err) => console.error(err));
+
+      const tQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'transactions'), where('roomId', '==', currentUser.roomId));
+      unsubTransactions = onSnapshot(tQuery, (snap) => {
+        transactions = [];
+        snap.forEach(doc => transactions.push(doc.data()));
+        updateAllDashboardUI();
+      }, (err) => console.error(err));
+    }
+
+    // Disconnessione
+    window.logout = function() {
+      if (unsubMembers) unsubMembers();
+      if (unsubAccounts) unsubAccounts();
+      if (unsubTransactions) unsubTransactions();
+      if (unsubPendingSelf) unsubPendingSelf();
+
+      currentUser = null;
+      localStorage.removeItem('famfin_user_session');
+      document.getElementById('auth-screen').classList.remove('hidden');
+      document.getElementById('member-modal').classList.add('hidden');
+      showNotification("Sessione chiusa correttamente.", "info");
+    };
+
+    function updateMembersUI() {
+      const manageList = document.getElementById('members-manage-list');
+      const approvalsList = document.getElementById('approvals-manage-list');
+      const approvalsSection = document.getElementById('admin-approvals-section');
+      
+      manageList.innerHTML = '';
+      approvalsList.innerHTML = '';
+
+      let pendingCount = 0;
+
+      members.forEach(member => {
+        if (member.status === 'pending') {
+          pendingCount++;
+          if (currentUser.role === 'admin') {
+            const item = document.createElement('div');
+            item.className = 'flex items-center justify-between bg-yellow-500/10 p-2.5 rounded-xl border border-yellow-500/25';
+            item.innerHTML = `
+              <div class="flex flex-col">
+                <span class="text-xs font-bold text-slate-200">${member.username}</span>
+                <span class="text-[9px] text-yellow-500 uppercase font-black">Richiesta Accesso</span>
+              </div>
+              <div class="flex gap-1.5">
+                <button onclick="approveMember('${member.id}', true)" class="w-7 h-7 bg-emerald-500 text-slate-950 rounded-lg flex items-center justify-center hover:bg-emerald-400 transition" title="Approva"><i data-lucide="check" class="w-4 h-4"></i></button>
+                <button onclick="approveMember('${member.id}', false)" class="w-7 h-7 bg-red-500 text-white rounded-lg flex items-center justify-center hover:bg-red-400 transition" title="Rifiuta"><i data-lucide="x" class="w-4 h-4"></i></button>
+              </div>
+            `;
+            approvalsList.appendChild(item);
+          }
+        } else {
+          // Approvati
+          const item = document.createElement('div');
+          item.className = 'flex items-center gap-2 bg-[#0B131A] p-2 rounded-xl border border-slate-800';
+          
+          let actionBtn = '';
+          if (currentUser.role === 'admin' && member.username !== currentUser.username) {
+            actionBtn = `
+              <button onclick="deleteMember('${member.id}')" class="p-1 text-slate-500 hover:text-red-400 transition" title="Rimuovi Membro">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            `;
+          }
+
+          item.innerHTML = `
+            <div class="flex-1 px-2 py-1 flex items-center justify-between">
+              <div>
+                <p class="text-xs font-bold text-slate-100">${member.username}</p>
+                <p class="text-[9px] text-slate-400 uppercase tracking-wide font-semibold">${member.role}</p>
+              </div>
+              ${actionBtn}
+            </div>
+          `;
+          manageList.appendChild(item);
+        }
+      });
+
+      // Gestione badge amministratore
+      if (currentUser.role === 'admin' && pendingCount > 0) {
+        approvalsSection.classList.remove('hidden');
+        document.getElementById('pending-badge').classList.remove('hidden');
+        document.getElementById('pending-badge').innerText = pendingCount;
+        document.getElementById('pending-dot').classList.remove('hidden');
+      } else {
+        approvalsSection.classList.add('hidden');
+        document.getElementById('pending-badge').classList.add('hidden');
+        document.getElementById('pending-dot').classList.add('hidden');
+      }
+
+      lucide.createIcons();
+    }
+
+    // Approvazione o rigetto utente
+    window.approveMember = async function(mId, isApproved) {
+      if (isOfflineFallback) {
+        const idx = members.findIndex(m => m.id === mId);
+        if (idx > -1) {
+          if (isApproved) {
+            members[idx].status = 'approved';
+            showNotification("Utente approvato nella simulazione!");
+          } else {
+            members.splice(idx, 1);
+            showNotification("Utente rifiutato.");
+          }
+          updateAllDashboardUI();
+        }
+        return;
+      }
+
+      try {
+        const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', mId);
+        if (isApproved) {
+          await updateDoc(memberRef, { status: 'approved' });
+          showNotification("Membro familiare approvato!");
+        } else {
+          await deleteDoc(memberRef);
+          showNotification("Richiesta di accesso eliminata.");
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    window.deleteMember = function(mId) {
+      showConfirm(
+        "Rimuovere Familiare?",
+        "L'utente non potrà più accedere alla stanza. Le transazioni da lui registrate rimarranno memorizzate con il suo nome.",
+        async () => {
+          if (isOfflineFallback) {
+            members = members.filter(m => m.id !== mId);
+            updateAllDashboardUI();
+            return;
+          }
+          try {
+            const memberRef = doc(db, 'artifacts', appId, 'public', 'data', 'members', mId);
+            await deleteDoc(memberRef);
+            showNotification("Utente rimosso con successo.");
+          } catch (e) { console.error(e); }
+        }
+      );
+    };
+
+    function updateContoOwnerDropdown() {
+      const ownerSel = document.getElementById('conto-owner');
+      ownerSel.innerHTML = '<option value="shared">Condiviso con tutta la Famiglia</option>';
+      members.forEach(m => {
+        if (m.status === 'approved') {
+          ownerSel.innerHTML += `<option value="${m.username}">Privato di ${m.username}</option>`;
+        }
+      });
+    }
+
+    window.toggleAccountVisibility = function(accId) {
+      const index = hiddenAccounts.indexOf(accId);
+      if (index > -1) {
+        hiddenAccounts.splice(index, 1);
+      } else {
+        hiddenAccounts.push(accId);
+      }
+      localStorage.setItem('fam_hidden_accounts', JSON.stringify(hiddenAccounts));
+      updateAccountsAndOverview();
+      showNotification("Visibilità conto aggiornata!", "info");
+    };
+
+    function updateAccountsAndOverview() {
+      const container = document.getElementById('accounts-list-container');
+      container.innerHTML = '';
+      
+      let totalBalance = 0;
+      let totalSpent = transactions
+        .filter(t => t.type === 'uscita')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      accounts.forEach(acc => {
+        const isOwner = acc.owner === 'shared' || acc.owner === currentUser.username;
+        const isHidden = hiddenAccounts.includes(acc.id);
+
+        let displayBalance = '•••• €';
+        let isPrivateBlocked = false;
+
+        if (isOwner) {
+          displayBalance = isHidden ? '•••• €' : `${acc.balance.toFixed(2)} €`;
+          if (acc.type !== 'risparmio') {
+            totalBalance += acc.balance;
+          }
+        } else {
+          isPrivateBlocked = true;
+        }
+
+        let iconName = 'credit-card';
+        if (acc.type === 'contanti') iconName = 'wallet';
+        if (acc.type === 'risparmio') iconName = 'piggy-bank';
+
+        const eyeIcon = isHidden ? 'eye-off' : 'eye';
+
+        const item = document.createElement('div');
+        item.className = 'bg-[#131E29] border border-slate-800/80 rounded-xl p-3 flex items-center justify-between hover:bg-slate-800/80 transition shadow-sm';
+        item.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-400">
+              <i data-lucide="${iconName}" class="w-4.5 h-4.5"></i>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-slate-100 flex items-center gap-1.5">
+                <span>${acc.name}</span>
+                ${acc.owner !== 'shared' ? `<span class="text-[8px] bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 px-1 py-0.2 rounded uppercase font-black" title="Conto privato di ${acc.owner}">Privato</span>` : ''}
+              </p>
+              <p class="text-[9px] text-slate-400 uppercase tracking-wide font-medium">
+                ${acc.owner !== 'shared' ? `Conto di ${acc.owner}` : 'Conto di Gruppo'}
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <p class="text-xs font-bold text-slate-100 mr-1">${displayBalance}</p>
+            ${isPrivateBlocked ? `
+              <div class="p-1 text-slate-600" title="Conto privato di ${acc.owner} (Saldo bloccato)">
+                <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+              </div>
+            ` : `
+              <button onclick="toggleAccountVisibility('${acc.id}')" class="p-1 text-slate-400 hover:text-cyan-400 rounded-lg hover:bg-slate-800 transition" title="Nascondi o Mostra Saldo">
+                <i data-lucide="${eyeIcon}" class="w-3.5 h-3.5"></i>
+              </button>
+            `}
+            <button onclick="deleteAccount('${acc.id}')" class="p-1 text-slate-600 hover:text-red-400 rounded-lg hover:bg-slate-800 transition">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+
+      document.getElementById('overview-spent-val').innerText = `${totalSpent.toFixed(2)} €`;
+      document.getElementById('overview-balance-val').innerText = `${totalBalance.toFixed(2)} €`;
+
+      const ratioSpent = totalSpent > 0 ? Math.min((totalSpent / 3000) * 100, 100) : 0;
+      const ratioBalance = totalBalance > 0 ? Math.min((totalBalance / 25000) * 100, 100) : 0;
+      document.getElementById('overview-spent-bar').style.width = `${ratioSpent}%`;
+      document.getElementById('overview-balance-bar').style.width = `${ratioBalance}%`;
+      
+      lucide.createIcons();
+    }
+
+    window.saveConto = async function() {
+      const name = document.getElementById('conto-name').value.trim();
+      const val = parseFloat(document.getElementById('conto-balance').value);
+      const type = document.getElementById('conto-type').value;
+      const owner = document.getElementById('conto-owner').value;
+
+      if (!name || isNaN(val)) {
+        showNotification("Compila tutti i campi richiesti!", "error");
+        return;
+      }
+
+      const newConto = {
+        id: 'acc_' + Date.now(),
+        roomId: currentUser.roomId,
+        name,
+        balance: val,
+        type,
+        owner
+      };
+
+      if (isOfflineFallback) {
+        accounts.push(newConto);
+        updateAllDashboardUI();
+      } else {
+        try {
+          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'accounts', newConto.id), newConto);
+        } catch (e) { console.error(e); }
+      }
+
+      closeContoModal();
+      document.getElementById('conto-name').value = '';
+      document.getElementById('conto-balance').value = '';
+      showNotification("Nuovo conto registrato con successo!");
+    };
+
+    window.deleteAccount = function(accId) {
+      showConfirm(
+        "Rimuovere Conto?",
+        "Tutte le visualizzazioni associate verranno rimosse definitivamente dal bilancio.",
+        async () => {
+          if (isOfflineFallback) {
+            accounts = accounts.filter(a => a.id !== accId);
+            updateAllDashboardUI();
+            return;
+          }
+          try {
+            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'accounts', accId));
+            showNotification("Conto eliminato.");
+          } catch (e) { console.error(e); }
+        }
+      );
+    };
+
+    window.saveObiettivo = async function() {
+      const name = document.getElementById('obiettivo-name').value.trim();
+      const current = parseFloat(document.getElementById('obiettivo-balance').value);
+      const goal = parseFloat(document.getElementById('obiettivo-goal').value);
+
+      if (!name || isNaN(current) || isNaN(goal)) {
+        showNotification("Completa tutti i campi dell'obiettivo!", "error");
+        return;
+      }
+
+      const newObiettivo = {
+        id: 'acc_' + Date.now(),
+        roomId: currentUser.roomId,
+        name,
+        balance: current,
+        goalAmount: goal,
+        type: 'risparmio',
+        owner: 'shared'
+      };
+
+      if (isOfflineFallback) {
+        accounts.push(newObiettivo);
+        updateAllDashboardUI();
+      } else {
+        try {
+          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'accounts', newObiettivo.id), newObiettivo);
+        } catch (e) { console.error(e); }
+      }
+
+      closeObiettivoModal();
+      document.getElementById('obiettivo-name').value = '';
+      document.getElementById('obiettivo-balance').value = '';
+      document.getElementById('obiettivo-goal').value = '';
+      showNotification("Obiettivo registrato!");
+    };
+
+    function updateObiettivi() {
+      const container = document.getElementById('savings-goals-container');
+      container.innerHTML = '';
+      const savings = accounts.filter(acc => acc.type === 'risparmio');
+      if (savings.length === 0) {
+        container.innerHTML = `<p class="text-[10px] text-slate-500 italic">Nessun obiettivo attivo. Registrane uno per iniziare a risparmiare!</p>`;
+        return;
+      }
+      savings.forEach(acc => {
+        const currentPercent = acc.goalAmount ? Math.min((acc.balance / acc.goalAmount) * 100, 100) : 0;
+        const item = document.createElement('div');
+        item.className = 'bg-[#131E29] border border-slate-800 rounded-xl p-3.5 space-y-2 shadow-sm';
+        item.innerHTML = `
+          <div class="flex justify-between items-center text-xs">
+            <span class="font-bold text-slate-100 flex items-center gap-1">
+              <i data-lucide="award" class="w-3.5 h-3.5 text-yellow-500"></i> ${acc.name}
+            </span>
+            <span class="text-cyan-400 font-bold">${acc.balance.toFixed(2)}€ / ${acc.goalAmount.toFixed(2)}€</span>
+          </div>
+          <div class="w-full bg-[#0B131A] h-2 rounded-full overflow-hidden">
+            <div class="bg-cyan-400 h-full rounded-full transition-all duration-700" style="width: ${currentPercent}%"></div>
+          </div>
+          <span class="text-[9px] text-slate-400 block text-right">${currentPercent.toFixed(0)}% Completato</span>
+        `;
+        container.appendChild(item);
+      });
+      lucide.createIcons();
+    }
+
+    function updateReminders() {
+      const container = document.getElementById('reminders-container');
+      container.innerHTML = '';
+      const recurringTx = transactions.filter(t => t.recurring !== 'no');
+      if (recurringTx.length === 0) {
+        container.innerHTML = `<p class="text-[10px] text-slate-500 italic">Nessuna spesa ricorrente pianificata.</p>`;
+        return;
+      }
+      recurringTx.forEach(tx => {
+        const item = document.createElement('div');
+        item.className = 'bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3 flex items-center justify-between shadow-sm';
+        item.innerHTML = `
+          <div class="flex items-center gap-2.5">
+            <span class="bg-yellow-500 text-[#0B131A] text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded">Mensile</span>
+            <div>
+              <p class="text-xs font-bold text-slate-200">${tx.desc}</p>
+              <p class="text-[9px] text-yellow-500 font-semibold">Mensile automatico</p>
+            </div>
+          </div>
+          <p class="text-xs font-bold text-slate-100">-${tx.amount.toFixed(2)} €</p>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    window.setQuickTxType = function(type) {
+      quickTxType = type;
+      const bUscita = document.getElementById('quick-btn-uscita');
+      const bEntrata = document.getElementById('quick-btn-entrata');
+      if (type === 'uscita') {
+        bUscita.className = "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 rounded-xl py-2 text-xs font-bold transition";
+        bEntrata.className = "bg-slate-800 text-slate-400 border border-transparent rounded-xl py-2 text-xs font-bold transition";
+      } else {
+        bEntrata.className = "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-xl py-2 text-xs font-bold transition";
+        bUscita.className = "bg-slate-800 text-slate-400 border border-transparent rounded-xl py-2 text-xs font-bold transition";
+      }
+    };
+
+    window.saveQuickTransazione = async function() {
+      const desc = document.getElementById('quick-tx-desc').value.trim();
+      const val = parseFloat(document.getElementById('quick-tx-amount').value);
+      const accId = document.getElementById('quick-tx-account').value;
+      const cat = document.getElementById('quick-tx-category').value;
+
+      if (!desc || isNaN(val) || val <= 0) {
+        showNotification("Dati della registrazione incompleti!", "error");
+        return;
+      }
+
+      const acc = accounts.find(a => a.id === accId);
+      if (!acc) {
+        showNotification("Nessun conto selezionato!", "error");
+        return;
+      }
+
+      // Aggiornamento Saldo Conto
+      const updatedBalance = quickTxType === 'uscita' ? acc.balance - val : acc.balance + val;
+
+      const newTx = {
+        id: 'tx_' + Date.now(),
+        roomId: currentUser.roomId,
+        desc,
+        amount: val,
+        type: quickTxType,
+        category: cat,
+        date: new Date().toISOString().split('T')[0],
+        createdBy: currentUser.username,
+        accountId: accId,
+        recurring: 'no'
+      };
+
+      if (isOfflineFallback) {
+        acc.balance = updatedBalance;
+        transactions.push(newTx);
+        updateAllDashboardUI();
+      } else {
+        try {
+          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'transactions', newTx.id), newTx);
+          await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'accounts', accId), { balance: updatedBalance });
+        } catch (e) { console.error(e); }
+      }
+
+      document.getElementById('quick-tx-desc').value = '';
+      document.getElementById('quick-tx-amount').value = '';
+      showNotification("Movimento registrato con successo!");
+    };
+
+    window.saveTransazione = async function() {
+      const desc = document.getElementById('tx-desc').value.trim();
+      const val = parseFloat(document.getElementById('tx-amount').value);
+      const accId = document.getElementById('tx-account').value;
+      const cat = document.getElementById('tx-category').value;
+      const recurring = document.getElementById('tx-recurring').value;
+
+      if (!desc || isNaN(val) || val <= 0) {
+        showNotification("Inserisci dettagli validi!", "error");
+        return;
+      }
+
+      const acc = accounts.find(a => a.id === accId);
+      if (!acc) return;
+
+      const updatedBalance = currentTxType === 'uscita' ? acc.balance - val : acc.balance + val;
+
+      const newTx = {
+        id: 'tx_' + Date.now(),
+        roomId: currentUser.roomId,
+        desc,
+        amount: val,
+        type: currentTxType,
+        category: cat,
+        date: new Date().toISOString().split('T')[0],
+        createdBy: currentUser.username,
+        accountId: accId,
+        recurring
+      };
+
+      if (isOfflineFallback) {
+        acc.balance = updatedBalance;
+        transactions.push(newTx);
+        updateAllDashboardUI();
+      } else {
+        try {
+          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'transactions', newTx.id), newTx);
+          await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'accounts', accId), { balance: updatedBalance });
+        } catch (e) { console.error(e); }
+      }
+
+      closeTransazioneModal();
+      document.getElementById('tx-desc').value = '';
+      document.getElementById('tx-amount').value = '';
+      showNotification("Transazione inserita.");
+    };
+
+    window.deleteTransaction = function(txId) {
+      showConfirm(
+        "Rimuovere Movimento?",
+        "Il saldo del conto originario verrà ripristinato.",
+        async () => {
+          const tx = transactions.find(t => t.id === txId);
+          if (!tx) return;
+          const acc = accounts.find(a => a.id === tx.accountId);
+          if (acc) {
+            const restoredBalance = tx.type === 'uscita' ? acc.balance + tx.amount : acc.balance - tx.amount;
+            if (isOfflineFallback) {
+              acc.balance = restoredBalance;
+              transactions = transactions.filter(t => t.id !== txId);
+              updateAllDashboardUI();
+            } else {
+              try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'transactions', txId));
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'accounts', tx.accountId), { balance: restoredBalance });
+              } catch (e) { console.error(e); }
+            }
+          }
+          showNotification("Transazione rimossa.");
+        }
+      );
+    };
+
+    window.saveTransfer = async function() {
+      const fromAccId = document.getElementById('transfer-from-account').value;
+      const toAccId = document.getElementById('transfer-to-account').value;
+      const amt = parseFloat(document.getElementById('transfer-amount').value);
+
+      if (fromAccId === toAccId) {
+        showNotification("Scegli due conti differenti!", "error");
+        return;
+      }
+      if (isNaN(amt) || amt <= 0) {
+        showNotification("Importo non valido!", "error");
+        return;
+      }
+
+      const fromAcc = accounts.find(a => a.id === fromAccId);
+      const toAcc = accounts.find(a => a.id === toAccId);
+
+      if (fromAcc && toAcc) {
+        if (fromAcc.balance < amt) {
+          showNotification("Disponibilità insufficiente sul conto di origine!", "error");
+          return;
+        }
+
+        const fromBal = fromAcc.balance - amt;
+        const toBal = toAcc.balance + amt;
+
+        const newTx = {
+          id: 'tx_' + Date.now(),
+          roomId: currentUser.roomId,
+          desc: `Giroconto: ${fromAcc.name} ➔ ${toAcc.name}`,
+          amount: amt,
+          type: 'uscita',
+          category: 'Giroconto',
+          date: new Date().toISOString().split('T')[0],
+          createdBy: currentUser.username,
+          accountId: fromAccId,
+          recurring: 'no'
+        };
+
+        if (isOfflineFallback) {
+          fromAcc.balance = fromBal;
+          toAcc.balance = toBal;
+          transactions.push(newTx);
+          updateAllDashboardUI();
+        } else {
+          try {
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'transactions', newTx.id), newTx);
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'accounts', fromAccId), { balance: fromBal });
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'accounts', toAccId), { balance: toBal });
+          } catch (e) { console.error(e); }
+        }
+
+        closeTransferModal();
+        document.getElementById('transfer-amount').value = '';
+        showNotification("Giroconto eseguito con successo!");
+      }
+    };
+
+    window.filterByCategory = function(catName) {
+      document.getElementById('filter-category-title').innerText = `Dettaglio Spese: ${catName}`;
+      document.getElementById('clear-filter-btn').classList.remove('hidden');
+
+      const container = document.getElementById('category-transactions-container');
+      container.innerHTML = '';
+
+      const filtered = transactions.filter(t => t.category === catName);
+      if (filtered.length === 0) {
+        container.innerHTML = `<p class="text-[10px] text-slate-500 italic">Nessun movimento inserito per questa categoria.</p>`;
+        return;
+      }
+
+      filtered.forEach(t => {
+        const item = document.createElement('div');
+        item.className = 'bg-[#131E29] border border-slate-800 rounded-xl p-3 flex items-center justify-between';
+        
+        let colorClass = t.type === 'entrata' ? 'text-emerald-400' : 'text-red-400';
+        let prefix = t.type === 'entrata' ? '+' : '-';
+
+        item.innerHTML = `
+          <div class="flex items-center gap-2.5">
+            <span class="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400">${t.createdBy}</span>
+            <div>
+              <p class="text-xs font-bold text-slate-100">${t.desc}</p>
+              <p class="text-[9px] text-slate-400">${t.date}</p>
+            </div>
+          </div>
+          <span class="text-xs font-bold ${colorClass}">${prefix}${t.amount.toFixed(2)} €</span>
+        `;
+        container.appendChild(item);
+      });
+    };
+
+    window.clearCategoryFilter = function() {
+      document.getElementById('filter-category-title').innerText = 'Seleziona una categoria per vedere i dettagli';
+      document.getElementById('clear-filter-btn').classList.add('hidden');
+      document.getElementById('category-transactions-container').innerHTML = '';
+    };
+
+    window.updateTransactionsList = function() {
+      const container = document.getElementById('all-transactions-container');
+      container.innerHTML = '';
+      
+      const searchVal = document.getElementById('search-tx').value.toLowerCase();
+      const catVal = document.getElementById('filter-category').value;
+
+      let filtered = transactions;
+
+      if (searchVal) {
+        filtered = filtered.filter(t => t.desc.toLowerCase().includes(searchVal));
+      }
+
+      if (catVal !== 'ALL') {
+        filtered = filtered.filter(t => t.category === catVal);
+      }
+
+      document.getElementById('total-transactions-count').innerText = filtered.length;
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<p class="text-center py-6 text-xs text-slate-500 italic">Nessun movimento trovato.</p>`;
+        return;
+      }
+
+      filtered.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(t => {
+        const row = document.createElement('div');
+        row.className = 'px-4 py-3 flex justify-between items-center hover:bg-slate-800/40 transition';
+        
+        let colorClass = t.type === 'entrata' ? 'text-emerald-400' : 'text-red-400';
+        let prefix = t.type === 'entrata' ? '+' : '-';
+
+        if (t.category === 'Giroconto') {
+          colorClass = 'text-yellow-400';
+          prefix = '⇅ ';
+        }
+
+        row.innerHTML = `
+          <div class="flex items-center gap-3">
+            <span class="text-[9px] font-extrabold uppercase tracking-wider px-2 py-1 rounded bg-[#0B131A] text-slate-300 border border-slate-800/80">${t.createdBy}</span>
+            <div>
+              <p class="text-xs font-bold text-slate-100">${t.desc}</p>
+              <p class="text-[9px] text-slate-500 flex items-center gap-1.5">
+                <span>${t.date}</span> • <span class="uppercase font-bold text-[#EAB308]">${t.category}</span>
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2.5">
+            <span class="text-xs font-bold ${colorClass}">${prefix}${t.amount.toFixed(2)} €</span>
+            <button onclick="deleteTransaction('${t.id}')" class="p-1 text-slate-600 hover:text-red-400 rounded-lg hover:bg-slate-800 transition">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+      lucide.createIcons();
+    };
+
+    window.navigateMonth = function(direction) {
+      calendarDate.setMonth(calendarDate.getMonth() + direction);
+      renderCalendar();
+    };
+
+    function renderCalendar() {
+      const year = calendarDate.getFullYear();
+      const month = calendarDate.getMonth();
+      
+      const nomiMesi = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
+      document.getElementById('calendar-month-title').innerText = `${nomiMesi[month]} ${year}`;
+
+      const grid = document.getElementById('calendar-days-grid');
+      grid.innerHTML = '';
+
+      const firstDayIdx = new Date(year, month, 1).getDay();
+      const firstDayOfCalendar = firstDayIdx === 0 ? 6 : firstDayIdx - 1;
+      const totalDays = new Date(year, month + 1, 0).getDate();
+
+      for (let i = 0; i < firstDayOfCalendar; i++) {
+        grid.appendChild(document.createElement('span'));
+      }
+
+      for (let day = 1; day <= totalDays; day++) {
+        const btn = document.createElement('button');
+        const formattedDay = String(day).padStart(2, '0');
+        const formattedMonth = String(month + 1).padStart(2, '0');
+        const dateString = `${year}-${formattedMonth}-${formattedDay}`;
+
+        const hasTxs = transactions.some(t => t.date === dateString);
+
+        btn.className = `text-xs py-1.5 rounded-lg text-slate-400 hover:bg-slate-800 transition relative flex items-center justify-center font-semibold`;
+        btn.innerText = day;
+
+        const today = new Date();
+        if (today.getDate() === day && today.getMonth() === month && today.getFullYear() === year) {
+          btn.className += ` bg-cyan-500/20 text-cyan-400 font-bold border border-cyan-500/40`;
+        }
+
+        if (hasTxs) {
+          const dot = document.createElement('span');
+          dot.className = 'absolute bottom-1 w-1.5 h-1.5 bg-yellow-500 rounded-full';
+          btn.appendChild(dot);
+          btn.onclick = () => {
+            switchTab('lista');
+            document.getElementById('search-tx').value = '';
+            document.getElementById('filter-category').value = 'ALL';
+            updateTransactionsList();
+            showNotification(`Transazioni del ${formattedDay}/${formattedMonth}`, "info");
+          };
+        }
+        grid.appendChild(btn);
+      }
+    }
+
+    function renderStatsCharts() {
+      const ctxElement = document.getElementById('categoryPieChart');
+      if (!ctxElement) return;
+
+      const ctx = ctxElement.getContext('2d');
+      if (statsChart) statsChart.destroy();
+
+      const selectedYear = document.getElementById('stats-year').value;
+      const selectedMonth = document.getElementById('stats-month').value;
+
+      let filtered = transactions.filter(t => t.type === 'uscita');
+      if (selectedMonth !== 'ALL') {
+        filtered = filtered.filter(t => t.date.startsWith(`${selectedYear}-${selectedMonth}`));
+      } else {
+        filtered = filtered.filter(t => t.date.startsWith(selectedYear));
+      }
+
+      const categoryTotals = {};
+      const userTotals = {};
+
+      filtered.forEach(t => {
+        categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
+        userTotals[t.createdBy] = (userTotals[t.createdBy] || 0) + t.amount;
+      });
+
+      const labels = Object.keys(categoryTotals);
+      const dataValues = Object.values(categoryTotals);
+      const colorPalette = ['#EAB308', '#06B6D4', '#8B5CF6', '#EF4444', '#10B981'];
+
+      const legendContainer = document.getElementById('stats-chart-legend');
+      legendContainer.innerHTML = '';
+      labels.forEach((label, idx) => {
+        const color = colorPalette[idx % colorPalette.length];
+        legendContainer.innerHTML += `
+          <div class="flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${color}"></span>
+            <span class="truncate text-[10px]">${label}: ${categoryTotals[label].toFixed(2)}€</span>
+          </div>
+        `;
+      });
+
+      statsChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: dataValues,
+            backgroundColor: colorPalette,
+            borderWidth: 0
+          }]
+        },
+        options: {
+          plugins: { legend: { display: false } },
+          cutout: '72%',
+          responsive: true,
+          maintainAspectRatio: false
+        }
+      });
+
+      const uContainer = document.getElementById('users-distribution-container');
+      uContainer.innerHTML = '';
+
+      members.forEach(u => {
+        if (u.status !== 'approved') return;
+        const amt = userTotals[u.username] || 0;
+        const totalOut = Object.values(userTotals).reduce((a, b) => a + b, 0);
+        const percent = totalOut > 0 ? (amt / totalOut) * 100 : 0;
+
+        uContainer.innerHTML += `
+          <div>
+            <div class="flex justify-between text-xs font-semibold mb-1">
+              <span class="text-slate-100">${u.username}</span>
+              <span class="text-slate-300 font-bold">${amt.toFixed(2)} € (${percent.toFixed(0)}%)</span>
+            </div>
+            <div class="w-full bg-[#0B131A] h-2 rounded-full overflow-hidden">
+              <div class="bg-[#EAB308] h-full" style="width: ${percent}%"></div>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    window.switchTab = function(tabName) {
+      const tabs = ['riepilogo', 'pagamenti', 'categorie', 'statistiche', 'lista'];
+      tabs.forEach(t => {
+        const screen = document.getElementById(`screen-${t}`);
+        const btn = document.getElementById(`tab-${t}`);
+        if (t === tabName) {
+          screen.classList.remove('hidden');
+          btn.classList.add('text-cyan-400');
+          btn.classList.remove('text-slate-500');
+        } else {
+          screen.classList.add('hidden');
+          btn.classList.remove('text-cyan-400');
+          btn.classList.add('text-slate-500');
+        }
+      });
+      if (tabName === 'statistiche') renderStatsCharts();
+      if (tabName === 'pagamenti') renderCalendar();
+    };
+
+    window.openContoModal = function() { document.getElementById('conto-modal').classList.remove('hidden'); };
+    window.closeContoModal = function() { document.getElementById('conto-modal').classList.add('hidden'); };
+    window.openObiettivoModal = function() { document.getElementById('obiettivo-modal').classList.remove('hidden'); };
+    window.closeObiettivoModal = function() { document.getElementById('obiettivo-modal').classList.add('hidden'); };
+    window.openTransazioneModal = function() { document.getElementById('transazione-modal').classList.remove('hidden'); };
+    window.closeTransazioneModal = function() { document.getElementById('transazione-modal').classList.add('hidden'); };
+    window.openTransferModal = function() { document.getElementById('transfer-modal').classList.remove('hidden'); };
+    window.closeTransferModal = function() { document.getElementById('transfer-modal').classList.add('hidden'); };
+    window.openMemberModal = function() { document.getElementById('member-modal').classList.remove('hidden'); };
+    window.closeMemberModal = function() { document.getElementById('member-modal').classList.add('hidden'); };
+
+    window.setTransactionType = function(type) {
+      currentTxType = type;
+      const bUscita = document.getElementById('btn-type-uscita');
+      const bEntrata = document.getElementById('btn-type-entrata');
+      if (type === 'uscita') {
+        bUscita.className = "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 rounded-lg py-1.5 text-xs font-bold";
+        bEntrata.className = "bg-slate-800 text-slate-400 border border-transparent rounded-lg py-1.5 text-xs font-bold";
+      } else {
+        bEntrata.className = "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-lg py-1.5 text-xs font-bold";
+        bUscita.className = "bg-slate-800 text-slate-400 border border-transparent rounded-lg py-1.5 text-xs font-bold";
+      }
+    };
+
+    function populateAccountSelectors() {
+      const selector = document.getElementById('tx-account');
+      const quickSelector = document.getElementById('quick-tx-account');
+      selector.innerHTML = '';
+      quickSelector.innerHTML = '';
+      accounts.forEach(acc => {
+        if (acc.type === 'risparmio') return;
+        const optionHTML = `<option value="${acc.id}">${acc.name} (${acc.balance.toFixed(2)}€)</option>`;
+        selector.innerHTML += optionHTML;
+        quickSelector.innerHTML += optionHTML;
+      });
+    }
+
+    function populateTransferSelectors() {
+      const fromSel = document.getElementById('transfer-from-account');
+      const toSel = document.getElementById('transfer-to-account');
+      fromSel.innerHTML = '';
+      toSel.innerHTML = '';
+      accounts.forEach(acc => {
+        fromSel.innerHTML += `<option value="${acc.id}">${acc.name} (${acc.balance.toFixed(2)}€)</option>`;
+        toSel.innerHTML += `<option value="${acc.id}">${acc.name} (${acc.balance.toFixed(2)}€)</option>`;
+      });
+    }
+
+    function updateAllDashboardUI() {
+      updateAccountsAndOverview();
+      updateObiettivi();
+      updateReminders();
+      populateAccountSelectors();
+      updateTransactionsList();
+      renderStatsCharts();
+      renderCalendar();
+    }
+
+    // GESTIONE FALLBACK OFFLINE (Mock per test in assenza di Firebase attivo)
+    function handleOfflineAuth(roomId, roomName, roomPassword, userName, userPin) {
+      currentUser = {
+        id: `${roomId}_${userName.toLowerCase()}`,
+        roomId,
+        username: userName,
+        pin: userPin,
+        role: userName.toLowerCase() === 'alex' ? 'admin' : 'user',
+        status: 'approved'
+      };
+      localStorage.setItem('famfin_user_session', JSON.stringify(currentUser));
+      loadOfflineMockData();
+      loginSuccess();
+      showNotification("Accesso effettuato in modalità simulazione locale!");
+    }
+
+    function loadOfflineMockData() {
+      members = [
+        { id: `${currentUser.roomId}_alex`, roomId: currentUser.roomId, username: "Alex", role: 'admin', status: 'approved' },
+        { id: `${currentUser.roomId}_marta`, roomId: currentUser.roomId, username: "Marta", role: 'user', status: 'approved' }
+      ];
+      accounts = [
+        { id: '1', roomId: currentUser.roomId, name: 'Banca Intesa Group', balance: 14500.25, type: 'carta', owner: 'shared' },
+        { id: '2', roomId: currentUser.roomId, name: 'Conto Privato Alex', balance: 3400.00, type: 'carta', owner: 'Alex' },
+        { id: '3', roomId: currentUser.roomId, name: 'Salvadanaio Mac', balance: 1500.00, goalAmount: 5000.00, type: 'risparmio', owner: 'shared' }
+      ];
+      transactions = [
+        { id: 't1', roomId: currentUser.roomId, desc: 'Spesa Esselunga', amount: 84.50, type: 'uscita', category: 'Cibo', date: '2026-07-15', createdBy: 'Alex', accountId: '1', recurring: 'no' },
+        { id: 't2', roomId: currentUser.roomId, desc: 'Ricarica Telepass', amount: 30.00, type: 'uscita', category: 'Auto', date: '2026-07-14', createdBy: 'Marta', accountId: '1', recurring: 'no' }
+      ];
+    }
+  </script>
+</body>
+</html>
