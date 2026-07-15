@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>FamFin - Finanza Familiare</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js per i grafici -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Lucide Icons per le icone moderne -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #0B131A;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: #0B131A;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #1E293B;
+      border-radius: 4px;
+    }
+    /* Animazioni fluide */
+    @keyframes slideIn {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes toastIn {
+      from { transform: translate(-50%, 20px); opacity: 0; }
+      to { transform: translate(-50%, 0); opacity: 1; }
+    }
+    .animate-slide-up {
+      animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .animate-toast {
+      animation: toastIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+  </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col justify-between max-w-md mx-auto border-x border-slate-800/80 relative shadow-2xl overflow-hidden bg-[#0B131A]">
+
+  <!-- Toast Notifiche Custom (Sostituisce gli Alert nativi) -->
+  <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-full max-w-xs px-4 pointer-events-none"></div>
+
+  <!-- Dialog di Conferma Custom (Sostituisce il Confirm nativo) -->
+  <div id="confirm-modal" class="fixed inset-0 bg-black/75 z-[90] flex items-center justify-center p-4 hidden">
+    <div class="bg-[#131E29] border border-slate-800 rounded-2xl w-full max-w-xs p-5 space-y-4">
+      <div class="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 mx-auto">
+        <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+      </div>
+      <div class="text-center space-y-1">
+        <h3 class="text-sm font-bold text-slate-100" id="confirm-title">Sei sicuro?</h3>
+        <p class="text-xs text-slate-400" id="confirm-message">Questa azione non può essere annullata.</p>
+      </div>
+      <div class="flex gap-2 pt-1">
+        <button id="confirm-cancel-btn" class="w-1/2 bg-slate-800 text-slate-300 py-2 rounded-xl text-xs font-semibold hover:bg-slate-700 transition active:scale-95">Annulla</button>
+        <button id="confirm-ok-btn" class="w-1/2 bg-red-500 text-white py-2 rounded-xl text-xs font-bold hover:bg-red-600 transition active:scale-95">Elimina</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Schermata di Login / Creazione Famiglia (Overlay iniziale) -->
+  <div id="auth-screen" class="absolute inset-0 bg-[#0B131A] z-50 flex flex-col justify-between p-6">
+    <div class="flex-1 flex flex-col justify-center items-center">
+      <div class="w-20 h-20 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-400 mb-6 border border-cyan-500/20 shadow-lg shadow-cyan-500/5">
+        <i data-lucide="home" class="w-10 h-10"></i>
+      </div>
+      <h1 class="text-3xl font-extrabold tracking-tight text-slate-100 bg-gradient-to-r from-cyan-400 to-yellow-400 bg-clip-text text-transparent">FamFin</h1>
+      <p class="text-xs text-slate-400 mt-2 text-center max-w-xs">Gestisci le spese, i conti e i risparmi in tempo reale con la tua famiglia.</p>
+      
+      <!-- Form di Accesso -->
+      <div class="w-full mt-8 bg-[#131E29] border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Nome Famiglia</label>
+          <input id="auth-family-name" type="text" placeholder="Es. Famiglia Rossi" class="w-full bg-[#0B131A] border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-cyan-500 transition placeholder-slate-600">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Password Stanza</label>
+          <input id="auth-family-password" type="password" placeholder="••••••••" class="w-full bg-[#0B131A] border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-cyan-500 transition placeholder-slate-600">
+        </div>
+        <div class="pt-2">
+          <button onclick="handleAuth()" class="w-full bg-[#EAB308] hover:bg-[#D9A307] active:scale-[0.98] text-[#0B131A] font-bold py-3 rounded-xl transition text-sm flex items-center justify-center gap-2 shadow-lg shadow-yellow-500/10">
+            <span>Accedi o Registrati</span>
+            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="text-center text-[10px] text-slate-500 flex items-center justify-center gap-1">
+      <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Autenticazione sicura e persistente localmente
+    </div>
+  </div>
+
+  <!-- Header dell'App -->
+  <header class="bg-[#131E29] border-b border-slate-800 px-4 py-3.5 flex items-center justify-between sticky top-0 z-40">
+    <div class="flex items-center gap-2.5">
+      <div class="w-9 h-9 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-400 border border-cyan-500/20">
+        <i data-lucide="users" class="w-4.5 h-4.5"></i>
+      </div>
+      <div>
+        <h2 id="header-family-name" class="text-sm font-bold text-slate-100">Famiglia</h2>
+        <span class="text-[10px] text-slate-400 flex items-center gap-1">
+          <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span> Sincronizzato Online
+        </span>
+      </div>
+    </div>
+    
+    <!-- Selettore Utente Attivo e Gestione -->
+    <div class="flex items-center gap-1.5">
+      <select id="user-selector" onchange="changeActiveUser(this.value)" class="bg-[#0B131A] border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-[#EAB308] font-bold focus:outline-none focus:border-yellow-500 transition">
+        <!-- Generato Dinamicamente -->
+      </select>
+      <button onclick="openMemberModal()" class="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-300 transition active:scale-90" title="Aggiungi Membro">
+        <i data-lucide="user-plus" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Contenitore Principale -->
+  <main class="flex-1 overflow-y-auto px-4 py-4 pb-24 custom-scroll">
+
+    <!-- TAB 1: RIEPILOGO -->
+    <section id="screen-riepilogo" class="space-y-6">
+      <div class="flex justify-between items-center">
+        <h3 class="text-base font-bold text-slate-100 flex items-center gap-1.5">
+          <i data-lucide="layout-dashboard" class="w-4.5 h-4.5 text-cyan-400"></i>Il tuo Bilancio
+        </h3>
+        <div class="flex gap-2">
+          <button onclick="openTransferModal()" class="text-[11px] text-cyan-400 hover:underline flex items-center gap-1 font-semibold">
+            <i data-lucide="arrow-left-right" class="w-3.5 h-3.5"></i> Giroconto
+          </button>
+          <button onclick="openContoModal()" class="text-[11px] text-[#EAB308] hover:underline flex items-center gap-1 font-semibold">
+            <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Aggiungi Conto
+          </button>
+        </div>
+      </div>
+
+      <!-- Widget Grafici Rapidi -->
+      <div class="bg-[#131E29] border border-slate-800/80 rounded-2xl p-4 space-y-4 shadow-lg">
+        <div>
+          <div class="flex justify-between text-xs font-semibold text-slate-400 mb-1.5">
+            <span class="flex items-center gap-1"><i data-lucide="trending-down" class="w-3.5 h-3.5 text-red-400"></i> Spese Totali Mese</span>
+            <span id="overview-spent-val" class="text-red-400 font-bold">0.00 €</span>
+          </div>
+          <div class="w-full bg-[#0B131A] h-2.5 rounded-full overflow-hidden">
+            <div id="overview-spent-bar" class="bg-red-400 h-full transition-all duration-500 rounded-full" style="width: 0%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between text-xs font-semibold text-slate-400 mb-1.5">
+            <span class="flex items-center gap-1"><i data-lucide="wallet" class="w-3.5 h-3.5 text-emerald-400"></i> Disponibilità Totale Conti</span>
+            <span id="overview-balance-val" class="text-emerald-400 font-bold">0.00 €</span>
+          </div>
+          <div class="w-full bg-[#0B131A] h-2.5 rounded-full overflow-hidden">
+            <div id="overview-balance-bar" class="bg-emerald-400 h-full transition-all duration-500 rounded-full" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lista dei Conti Dinamici -->
+      <div class="space-y-3">
+        <h4 class="text-[11px] font-bold uppercase text-slate-500 tracking-wider">I tuoi conti attivi</h4>
+        <div id="accounts-list-container" class="space-y-2.5"></div>
+      </div>
+    </section>
+
+    <!-- TAB 2: PAGAMENTI -->
+    <section id="screen-pagamenti" class="space-y-6 hidden">
+      <div class="flex justify-between items-center">
+        <h3 class="text-base font-bold text-slate-100 flex items-center gap-1.5">
+          <i data-lucide="calendar" class="w-4.5 h-4.5 text-cyan-400"></i>Pagamenti & Obiettivi
+        </h3>
+        <button onclick="openObiettivoModal()" class="text-xs text-[#EAB308] hover:underline flex items-center gap-1 font-semibold">
+          <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Nuovo Obiettivo
+        </button>
+      </div>
+
+      <!-- Calendario Mensile Dinamico -->
+      <div class="bg-[#131E29] border border-slate-800 rounded-2xl p-4 shadow-lg">
+        <div class="flex justify-between items-center mb-4">
+          <button onclick="navigateMonth(-1)" class="p-1 hover:bg-slate-800 rounded-lg text-slate-400 transition"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+          <span id="calendar-month-title" class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+             Mese Anno
+          </span>
+          <button onclick="navigateMonth(1)" class="p-1 hover:bg-slate-800 rounded-lg text-slate-400 transition"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+        </div>
+        <div class="grid grid-cols-7 gap-1 text-center text-[10px] text-slate-500 font-bold mb-2">
+          <span>LUN</span><span>MAR</span><span>MER</span><span>GIO</span><span>VEN</span><span>SAB</span><span>DOM</span>
+        </div>
+        <div id="calendar-days-grid" class="grid grid-cols-7 gap-1 text-center">
+          <!-- Popolato via JS -->
+        </div>
+      </div>
+
+      <!-- Lista Obiettivi di Risparmio -->
+      <div class="space-y-3">
+        <h4 class="text-[11px] font-bold uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
+          <i data-lucide="piggy-bank" class="w-4 h-4 text-yellow-500"></i> Obiettivi di Risparmio
+        </h4>
+        <div id="savings-goals-container" class="space-y-3"></div>
+      </div>
+
+      <!-- Scadenze e Promemoria Addebiti -->
+      <div class="space-y-3">
+        <h4 class="text-[11px] font-bold uppercase text-slate-500 tracking-wider">Scadenze Ricorrenti Attive</h4>
+        <div id="reminders-container" class="space-y-2.5"></div>
+      </div>
+    </section>
+
+    <!-- TAB 3: CATEGORIE -->
+    <section id="screen-categorie" class="space-y-6 hidden">
+      <h3 class="text-base font-bold text-slate-100 flex items-center gap-1.5">
+        <i data-lucide="tag" class="w-4.5 h-4.5 text-cyan-400"></i>Filtro Categorie
+      </h3>
+
+      <!-- Griglia Categorie -->
+      <div class="grid grid-cols-4 gap-2.5">
+        <button onclick="filterByCategory('Cibo')" class="bg-[#131E29] hover:bg-slate-800 border border-slate-800/80 rounded-xl p-3 flex flex-col items-center gap-1.5 transition active:scale-95">
+          <div class="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500">
+            <i data-lucide="shopping-cart" class="w-4 h-4"></i>
+          </div>
+          <span class="text-[10px] font-bold">Cibo</span>
+        </button>
+        <button onclick="filterByCategory('Auto')" class="bg-[#131E29] hover:bg-slate-800 border border-slate-800/80 rounded-xl p-3 flex flex-col items-center gap-1.5 transition active:scale-95">
+          <div class="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
+            <i data-lucide="car" class="w-4 h-4"></i>
+          </div>
+          <span class="text-[10px] font-bold">Auto</span>
+        </button>
+        <button onclick="filterByCategory('Intrattenimento')" class="bg-[#131E29] hover:bg-slate-800 border border-slate-800/80 rounded-xl p-3 flex flex-col items-center gap-1.5 transition active:scale-95">
+          <div class="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-500">
+            <i data-lucide="tv" class="w-4 h-4"></i>
+          </div>
+          <span class="text-[10px] font-bold">Svago</span>
+        </button>
+        <button onclick="filterByCategory('Bollette')" class="bg-[#131E29] hover:bg-slate-800 border border-slate-800/80 rounded-xl p-3 flex flex-col items-center gap-1.5 transition active:scale-95">
+          <div class="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
+            <i data-lucide="zap" class="w-4 h-4"></i>
+          </div>
+          <span class="text-[10px] font-bold">Bollette</span>
+        </button>
+      </div>
+
+      <!-- Transazioni Filtrate -->
+      <div class="space-y-3">
+        <div class="flex justify-between items-center">
+          <h4 id="filter-category-title" class="text-[11px] font-bold uppercase text-slate-500 tracking-wider">Seleziona una categoria per vedere i dettagli</h4>
+          <button onclick="clearCategoryFilter()" id="clear-filter-btn" class="text-[10px] text-cyan-400 hover:underline hidden">Mostra tutte</button>
+        </div>
+        <div id="category-transactions-container" class="space-y-2.5"></div>
+      </div>
+    </section>
+
+    <!-- TAB 4: STATISTICHE -->
+    <section id="screen-statistiche" class="space-y-6 hidden">
+      <div class="flex justify-between items-center">
+        <h3 class="text-base font-bold text-slate-100 flex items-center gap-1.5">
+          <i data-lucide="pie-chart" class="w-4.5 h-4.5 text-cyan-400"></i>Analisi Spese
+        </h3>
+        
+        <!-- Filtro Anno/Mese -->
+        <div class="flex gap-1.5">
+          <select id="stats-year" onchange="renderStatsCharts()" class="bg-[#131E29] border border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-300 focus:outline-none focus:border-cyan-500">
+            <option value="2026">2026</option>
+            <option value="2025">2025</option>
+          </select>
+          <select id="stats-month" onchange="renderStatsCharts()" class="bg-[#131E29] border border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-300 focus:outline-none focus:border-cyan-500">
+            <option value="ALL">Tutto l'anno</option>
+            <option value="07">Luglio</option>
+            <option value="06">Giugno</option>
+            <option value="05">Maggio</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Grafico a Torta -->
+      <div class="bg-[#131E29] border border-slate-800 rounded-2xl p-4 flex flex-col items-center shadow-lg">
+        <span class="text-xs font-bold text-slate-400 mb-4 uppercase tracking-wide">Suddivisione per Categoria</span>
+        <div class="w-44 h-44 relative">
+          <canvas id="categoryPieChart"></canvas>
+        </div>
+        <!-- Legenda Custom per maggiore accessibilità -->
+        <div id="stats-chart-legend" class="w-full mt-4 grid grid-cols-2 gap-2 text-[10px] text-slate-300"></div>
+      </div>
+
+      <!-- Chi Ha Speso Quanto -->
+      <div class="bg-[#131E29] border border-slate-800 rounded-2xl p-4 space-y-4 shadow-lg">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wide block">Ripartizione Spese per Utente</span>
+        <div id="users-distribution-container" class="space-y-3"></div>
+      </div>
+    </section>
+
+    <!-- TAB 5: LISTA -->
+    <section id="screen-lista" class="space-y-4 hidden">
+      <div class="flex justify-between items-center">
+        <h3 class="text-base font-bold text-slate-100 flex items-center gap-1.5">
+          <i data-lucide="list" class="w-4.5 h-4.5 text-cyan-400"></i>Transazioni
+        </h3>
+        <button onclick="openTransazioneModal()" class="bg-[#EAB308] hover:bg-[#D9A307] active:scale-95 text-[#0B131A] font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition shadow-lg shadow-yellow-500/10">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nuova Transazione
+        </button>
+      </div>
+
+      <!-- Filtri di Ricerca e Selezione Rapida -->
+      <div class="flex gap-2">
+        <div class="relative flex-1">
+          <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"></i>
+          <input id="search-tx" oninput="updateTransactionsList()" type="text" placeholder="Cerca transazione..." class="w-full bg-[#131E29] border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 placeholder-slate-500">
+        </div>
+        <select id="filter-category" onchange="updateTransactionsList()" class="bg-[#131E29] border border-slate-800 rounded-xl px-2 py-2 text-xs text-slate-300 focus:outline-none focus:border-cyan-500">
+          <option value="ALL">Tutte</option>
+          <option value="Cibo">Cibo</option>
+          <option value="Auto">Auto</option>
+          <option value="Intrattenimento">Svago</option>
+          <option value="Bollette">Bollette</option>
+          <option value="Lavoro">Lavoro</option>
+          <option value="Giroconto">Giroconto</option>
+        </select>
+      </div>
+
+      <!-- Registro Movimenti -->
+      <div class="bg-[#131E29] border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
+        <div class="px-4 py-3 border-b border-slate-800 bg-[#162330] flex justify-between items-center">
+          <span class="text-xs font-bold text-slate-300">Registro Movimenti</span>
+          <span id="total-transactions-count" class="text-[10px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-2 py-0.5 rounded-full font-bold">0</span>
+        </div>
+        <div id="all-transactions-container" class="divide-y divide-slate-800/60 max-h-[380px] overflow-y-auto custom-scroll"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Navigation Bar Inferiore -->
+  <nav class="bg-[#131E29] border-t border-slate-800 fixed bottom-0 left-0 right-0 max-w-md mx-auto z-40 flex justify-around py-3 px-2">
+    <button onclick="switchTab('riepilogo')" id="tab-riepilogo" class="flex flex-col items-center gap-1 text-cyan-400 transition active:scale-90">
+      <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+      <span class="text-[9px] font-bold">Riepilogo</span>
+    </button>
+    <button onclick="switchTab('pagamenti')" id="tab-pagamenti" class="flex flex-col items-center gap-1 text-slate-500 transition active:scale-90">
+      <i data-lucide="wallet" class="w-5 h-5"></i>
+      <span class="text-[9px] font-bold">Pagamenti</span>
+    </button>
+    <button onclick="switchTab('categorie')" id="tab-categorie" class="flex flex-col items-center gap-1 text-slate-500 transition active:scale-90">
+      <i data-lucide="tag" class="w-5 h-5"></i>
+      <span class="text-[9px] font-bold">Categorie</span>
+    </button>
+    <button onclick="switchTab('statistiche')" id="tab-statistiche" class="flex flex-col items-center gap-1 text-slate-500 transition active:scale-90">
+      <i data-lucide="pie-chart" class="w-5 h-5"></i>
+      <span class="text-[9px] font-bold">Statistiche</span>
+    </button>
+    <button onclick="switchTab('lista')" id="tab-lista" class="flex flex-col items-center gap-1 text-slate-500 transition active:scale-90">
+      <i data-lucide="list" class="w-5 h-5"></i>
+      <span class="text-[9px] font-bold">Lista</span>
+    </button>
+  </nav>
+
+  <!-- MODAL: Aggiungi Conto -->
+  <div id="conto-modal" class="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-[#131E29] border border-slate-800 rounded-2xl w-full max-w-xs p-5 space-y-4 animate-slide-up">
+      <h3 class="text-sm font-bold text-slate-100 flex items-center gap-1.5">
+        <i data-lucide="plus-circle" class="text-[#EAB308] w-4.5 h-4.5"></i> Aggiungi un nuovo Conto
+      </h3>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Nome del Conto</label>
+          <input id="conto-name" type="text" placeholder="Es. Banca Intesa" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 placeholder-slate-600">
+        </div>
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Saldo Iniziale (€)</label>
+          <input id="conto-balance" type="number" step="0.01" placeholder="Es. 2500" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 placeholder-slate-600">
+        </div>
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Tipologia Conto</label>
+          <select id="conto-type" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500">
+            <option value="contanti">Contanti / Portafoglio</option>
+            <option value="carta">Conto Corrente / Carta</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button onclick="closeContoModal()" class="w-1/2 bg-slate-800 text-slate-300 py-2 rounded-xl text-xs font-semibold hover:bg-slate-700 transition active:scale-95">Annulla</button>
+        <button onclick="saveConto()" class="w-1/2 bg-[#EAB308] text-[#0B131A] py-2 rounded-xl text-xs font-bold hover:bg-[#D9A307] transition active:scale-95">Salva</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Aggiungi Obiettivo di Risparmio -->
+  <div id="obiettivo-modal" class="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-[#131E29] border border-slate-800 rounded-2xl w-full max-w-xs p-5 space-y-4 animate-slide-up">
+      <h3 class="text-sm font-bold text-slate-100 flex items-center gap-1.5">
+        <i data-lucide="piggy-bank" class="text-cyan-400 w-4.5 h-4.5"></i> Nuovo Conto Obiettivo
+      </h3>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Nome dell'obiettivo</label>
+          <input id="obiettivo-name" type="text" placeholder="Es. Risparmio Mac" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 placeholder-slate-600">
+        </div>
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Fondo Attuale (€)</label>
+          <input id="obiettivo-balance" type="number" step="0.01" placeholder="Es. 150" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 placeholder-slate-600">
+        </div>
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Traguardo Finale (€)</label>
+          <input id="obiettivo-goal" type="number" step="0.01" placeholder="Es. 2000" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 placeholder-slate-600">
+        </div>
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button onclick="closeObiettivoModal()" class="w-1/2 bg-slate-800 text-slate-300 py-2 rounded-xl text-xs font-semibold hover:bg-slate-700 transition active:scale-95">Annulla</button>
+        <button onclick="saveObiettivo()" class="w-1/2 bg-[#EAB308] text-[#0B131A] py-2 rounded-xl text-xs font-bold hover:bg-[#D9A307] transition active:scale-95">Crea</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Nuova Transazione -->
+  <div id="transazione-modal" class="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-[#131E29] border border-slate-800 rounded-2xl w-full max-w-xs p-5 space-y-4 animate-slide-up">
+      <h3 class="text-sm font-bold text-slate-100">Nuova Transazione</h3>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Tipo Movimento</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="setTransactionType('uscita')" id="btn-type-uscita" class="bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 rounded-lg py-1.5 text-xs font-bold">Uscita</button>
+            <button onclick="setTransactionType('entrata')" id="btn-type-entrata" class="bg-slate-800 text-slate-400 border border-transparent rounded-lg py-1.5 text-xs font-bold">Entrata</button>
+          </div>
+        </div>
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Descrizione</label>
+          <input id="tx-desc" type="text" placeholder="Es. Spesa Esselunga" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 placeholder-slate-600">
+        </div>
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Importo (€)</label>
+          <input id="tx-amount" type="number" step="0.01" placeholder="Es. 45.50" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 placeholder-slate-600">
+        </div>
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Conto di Addebito/Accredito</label>
+          <select id="tx-account" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"></select>
+        </div>
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Categoria</label>
+          <select id="tx-category" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500">
+            <option value="Cibo">Cibo / Supermercato</option>
+            <option value="Auto">Auto / Trasporti</option>
+            <option value="Intrattenimento">Svago / Streaming</option>
+            <option value="Bollette">Utenze / Bollette</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Transazione Ricorrente?</label>
+          <select id="tx-recurring" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500">
+            <option value="no">No, Singola</option>
+            <option value="mensile">Sì, Mensile</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button onclick="closeTransazioneModal()" class="w-1/2 bg-slate-800 text-slate-300 py-2 rounded-xl text-xs font-semibold hover:bg-slate-700 transition active:scale-95">Annulla</button>
+        <button onclick="saveTransazione()" class="w-1/2 bg-[#EAB308] text-[#0B131A] py-2 rounded-xl text-xs font-bold hover:bg-[#D9A307] transition active:scale-95">Inserisci</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Aggiungi Membro Famiglia -->
+  <div id="member-modal" class="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-[#131E29] border border-slate-800 rounded-2xl w-full max-w-xs p-5 space-y-4 animate-slide-up">
+      <h3 class="text-sm font-bold text-slate-100 flex items-center gap-1.5">
+        <i data-lucide="user-plus" class="text-[#EAB308] w-4.5 h-4.5"></i> Aggiungi Membro Famiglia
+      </h3>
+      <div>
+        <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Nome</label>
+        <input id="new-member-name" type="text" placeholder="Es. Giulia" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 placeholder-slate-600">
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button onclick="closeMemberModal()" class="w-1/2 bg-slate-800 text-slate-300 py-2 rounded-xl text-xs font-semibold hover:bg-slate-700 transition active:scale-95">Annulla</button>
+        <button onclick="saveMember()" class="w-1/2 bg-[#EAB308] text-[#0B131A] py-2 rounded-xl text-xs font-bold hover:bg-[#D9A307] transition active:scale-95">Aggiungi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Giroconto / Trasferimento -->
+  <div id="transfer-modal" class="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-[#131E29] border border-slate-800 rounded-2xl w-full max-w-xs p-5 space-y-4 animate-slide-up">
+      <h3 class="text-sm font-bold text-slate-100 flex items-center gap-1.5">
+        <i data-lucide="arrow-left-right" class="text-cyan-400 w-4.5 h-4.5"></i> Nuovo Giroconto
+      </h3>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Conto di Origine (Da)</label>
+          <select id="transfer-from-account" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"></select>
+        </div>
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Conto di Destinazione (A)</label>
+          <select id="transfer-to-account" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"></select>
+        </div>
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase font-bold mb-1">Importo (€)</label>
+          <input id="transfer-amount" type="number" step="0.01" placeholder="Es. 100.00" class="w-full bg-[#0B131A] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 placeholder-slate-600">
+        </div>
+      </div>
+      <div class="flex gap-2 pt-2">
+        <button onclick="closeTransferModal()" class="w-1/2 bg-slate-800 text-slate-300 py-2 rounded-xl text-xs font-semibold hover:bg-slate-700 transition active:scale-95">Annulla</button>
+        <button onclick="saveTransfer()" class="w-1/2 bg-[#EAB308] text-[#0B131A] py-2 rounded-xl text-xs font-bold hover:bg-[#D9A307] transition active:scale-95">Esegui</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Dati di default
+    let activeUser = 'Alex';
+    let familyData = null;
+    let currentTxType = 'uscita';
+    let statsChart = null;
+    let calendarDate = new Date(2026, 6, 15); // Default Luglio 2026
+
+    let defaultConti = [
+      { id: '1', name: 'Contanti Alex', balance: 45.50, type: 'contanti' },
+      { id: '2', name: 'Banca Intesa', balance: 21320.75, type: 'carta' },
+      { id: '3', name: 'Risparmi Mac', balance: 4500.00, goalAmount: 10000.00, type: 'risparmio' }
+    ];
+
+    let defaultTransazioni = [
+      { id: 't1', desc: 'Spesa Esselunga', amount: 84.50, type: 'uscita', category: 'Cibo', date: '2026-07-15', createdBy: 'Alex', accountId: '2', recurring: 'no' },
+      { id: 't2', desc: 'Carburante', amount: 50.00, type: 'uscita', category: 'Auto', date: '2026-07-14', createdBy: 'Marta', accountId: '2', recurring: 'no' },
+      { id: 't3', desc: 'Stipendio', amount: 2200.00, type: 'entrata', category: 'Lavoro', date: '2026-07-01', createdBy: 'Alex', accountId: '2', recurring: 'no' },
+      { id: 't4', desc: 'Netflix', amount: 17.99, type: 'uscita', category: 'Intrattenimento', date: '2026-07-15', createdBy: 'Luca', accountId: '2', recurring: 'mensile' }
+    ];
+
+    let defaultMembri = ['Alex', 'Marta', 'Luca'];
+
+    // Sincronizzazione LocalStorage
+    let accounts = JSON.parse(localStorage.getItem('fam_accounts')) || defaultConti;
+    let transactions = JSON.parse(localStorage.getItem('fam_transactions')) || defaultTransazioni;
+    let familyMembers = JSON.parse(localStorage.getItem('fam_members')) || defaultMembri;
+
+    // Sistema Notifiche Toast Custom (Evita Alert)
+    function showNotification(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      
+      let bgClass = 'bg-emerald-500 text-white';
+      let icon = 'check-circle';
+      if (type === 'error') {
+        bgClass = 'bg-red-500 text-white';
+        icon = 'x-circle';
+      } else if (type === 'info') {
+        bgClass = 'bg-cyan-500 text-white';
+        icon = 'info';
+      }
+
+      toast.className = `${bgClass} p-3 rounded-xl text-xs font-bold shadow-2xl flex items-center gap-2 mb-2 animate-toast pointer-events-auto`;
+      toast.innerHTML = `
+        <i data-lucide="${icon}" class="w-4 h-4 flex-shrink-0"></i>
+        <span>${message}</span>
+      `;
+      container.appendChild(toast);
+      lucide.createIcons();
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translate(-50%, -10px)';
+        toast.style.transition = 'all 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    // Modal di Conferma Custom
+    function showConfirm(title, message, onConfirm) {
+      const modal = document.getElementById('confirm-modal');
+      document.getElementById('confirm-title').innerText = title;
+      document.getElementById('confirm-message').innerText = message;
+      modal.classList.remove('hidden');
+
+      const btnOk = document.getElementById('confirm-ok-btn');
+      const btnCancel = document.getElementById('confirm-cancel-btn');
+
+      const cleanup = () => {
+        modal.classList.add('hidden');
+        btnOk.onclick = null;
+        btnCancel.onclick = null;
+      };
+
+      btnOk.onclick = () => {
+        onConfirm();
+        cleanup();
+      };
+      btnCancel.onclick = cleanup;
+    }
+
+    window.onload = function() {
+      lucide.createIcons();
+      checkAuth();
+    }
+
+    function checkAuth() {
+      const savedFam = localStorage.getItem('family_session');
+      if (savedFam) {
+        familyData = JSON.parse(savedFam);
+        document.getElementById('auth-screen').classList.add('hidden');
+        document.getElementById('header-family-name').innerText = familyData.name;
+        initApp();
+      }
+    }
+
+    function handleAuth() {
+      const famName = document.getElementById('auth-family-name').value.trim();
+      const famPass = document.getElementById('auth-family-password').value.trim();
+      if (!famName || !famPass) {
+        showNotification("Inserisci Nome Famiglia e Password!", "error");
+        return;
+      }
+      
+      familyData = { name: famName, password: famPass };
+      localStorage.setItem('family_session', JSON.stringify(familyData));
+      document.getElementById('auth-screen').classList.add('hidden');
+      document.getElementById('header-family-name').innerText = familyData.name;
+      initApp();
+      showNotification(`Benvenuto nella Stanza ${famName}!`);
+    }
+
+    function initApp() {
+      updateUserSelector();
+      updateAccountsAndOverview();
+      updateObiettivi();
+      updateReminders();
+      populateAccountSelectors();
+      updateTransactionsList();
+      renderStatsCharts();
+      renderCalendar();
+    }
+
+    function updateUserSelector() {
+      const selector = document.getElementById('user-selector');
+      selector.innerHTML = '';
+      familyMembers.forEach(member => {
+        const selected = member === activeUser ? 'selected' : '';
+        selector.innerHTML += `<option value="${member}" ${selected}>${member}</option>`;
+      });
+    }
+
+    function changeActiveUser(val) {
+      activeUser = val;
+      showNotification(`Utente attivo: ${val}`, "info");
+      updateTransactionsList();
+    }
+
+    function switchTab(tabName) {
+      const tabs = ['riepilogo', 'pagamenti', 'categorie', 'statistiche', 'lista'];
+      tabs.forEach(t => {
+        const screen = document.getElementById(`screen-${t}`);
+        const btn = document.getElementById(`tab-${t}`);
+        if (t === tabName) {
+          screen.classList.remove('hidden');
+          btn.classList.add('text-cyan-400');
+          btn.classList.remove('text-slate-500');
+        } else {
+          screen.classList.add('hidden');
+          btn.classList.remove('text-cyan-400');
+          btn.classList.add('text-slate-500');
+        }
+      });
+      if (tabName === 'statistiche') {
+        renderStatsCharts();
+      }
+      if (tabName === 'pagamenti') {
+        renderCalendar();
+      }
+    }
+
+    function updateAccountsAndOverview() {
+      const container = document.getElementById('accounts-list-container');
+      container.innerHTML = '';
+      
+      let totalBalance = 0;
+      let totalSpent = transactions
+        .filter(t => t.type === 'uscita')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      accounts.forEach(acc => {
+        // Se il conto è di tipo risparmio non lo consideriamo nel saldo liquido di spesa ordinaria
+        if (acc.type !== 'risparmio') {
+          totalBalance += acc.balance;
+        }
+        
+        let iconName = 'credit-card';
+        if (acc.type === 'contanti') iconName = 'wallet';
+        if (acc.type === 'risparmio') iconName = 'piggy-bank';
+
+        const item = document.createElement('div');
+        item.className = 'bg-[#131E29] border border-slate-800/80 rounded-xl p-3 flex items-center justify-between hover:bg-slate-800/80 transition shadow-sm';
+        item.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-400">
+              <i data-lucide="${iconName}" class="w-4.5 h-4.5"></i>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-slate-100">${acc.name}</p>
+              <p class="text-[9px] text-slate-400 uppercase tracking-wide">${acc.type}</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <p class="text-xs font-bold text-slate-100">${acc.balance.toFixed(2)} €</p>
+            <button onclick="deleteAccount('${acc.id}')" class="p-1 text-slate-600 hover:text-red-400 rounded-lg hover:bg-slate-800 transition">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+
+      document.getElementById('overview-spent-val').innerText = `${totalSpent.toFixed(2)} €`;
+      document.getElementById('overview-balance-val').innerText = `${totalBalance.toFixed(2)} €`;
+
+      const ratioSpent = totalSpent > 0 ? Math.min((totalSpent / 3000) * 100, 100) : 0;
+      const ratioBalance = totalBalance > 0 ? Math.min((totalBalance / 25000) * 100, 100) : 0;
+      document.getElementById('overview-spent-bar').style.width = `${ratioSpent}%`;
+      document.getElementById('overview-balance-bar').style.width = `${ratioBalance}%`;
+      
+      lucide.createIcons();
+    }
+
+    function deleteAccount(accId) {
+      showConfirm(
+        "Rimuovere Conto?",
+        "Rimuovendo il conto verranno eliminate o modificate le visualizzazioni associate. Saldi e transazioni passate non verranno influenzate ma il conto sparirà.",
+        () => {
+          accounts = accounts.filter(a => a.id !== accId);
+          localStorage.setItem('fam_accounts', JSON.stringify(accounts));
+          showNotification("Conto rimosso correttamente.");
+          initApp();
+        }
+      );
+    }
+
+    function deleteTransaction(txId) {
+      showConfirm(
+        "Rimuovere Movimento?",
+        "L'importo associato a questa transazione verrà ripristinato sul conto di riferimento.",
+        () => {
+          const txIndex = transactions.findIndex(t => t.id === txId);
+          if (txIndex > -1) {
+            const tx = transactions[txIndex];
+            const acc = accounts.find(a => a.id === tx.accountId);
+            if (acc) {
+              if (tx.type === 'uscita') {
+                acc.balance += tx.amount;
+              } else if (tx.type === 'entrata') {
+                acc.balance -= tx.amount;
+              }
+            }
+            transactions.splice(txIndex, 1);
+            localStorage.setItem('fam_accounts', JSON.stringify(accounts));
+            localStorage.setItem('fam_transactions', JSON.stringify(transactions));
+            showNotification("Movimento eliminato con successo!");
+            initApp();
+          }
+        }
+      );
+    }
+
+    function updateObiettivi() {
+      const container = document.getElementById('savings-goals-container');
+      container.innerHTML = '';
+
+      const savings = accounts.filter(acc => acc.type === 'risparmio');
+      if (savings.length === 0) {
+        container.innerHTML = `<p class="text-[10px] text-slate-500 italic">Nessun obiettivo attivo. Creane uno per iniziare a risparmiare!</p>`;
+        return;
+      }
+
+      savings.forEach(acc => {
+        const currentPercent = acc.goalAmount ? Math.min((acc.balance / acc.goalAmount) * 100, 100) : 0;
+        const item = document.createElement('div');
+        item.className = 'bg-[#131E29] border border-slate-800 rounded-xl p-3.5 space-y-2 shadow-sm';
+        item.innerHTML = `
+          <div class="flex justify-between items-center text-xs">
+            <span class="font-bold text-slate-100 flex items-center gap-1">
+              <i data-lucide="award" class="w-3.5 h-3.5 text-yellow-500"></i> ${acc.name}
+            </span>
+            <span class="text-cyan-400 font-bold">${acc.balance.toFixed(2)}€ / ${acc.goalAmount.toFixed(2)}€</span>
+          </div>
+          <div class="w-full bg-[#0B131A] h-2 rounded-full overflow-hidden">
+            <div class="bg-cyan-400 h-full rounded-full transition-all duration-700" style="width: ${currentPercent}%"></div>
+          </div>
+          <span class="text-[9px] text-slate-400 block text-right">${currentPercent.toFixed(0)}% Completato</span>
+        `;
+        container.appendChild(item);
+      });
+      lucide.createIcons();
+    }
+
+    function updateReminders() {
+      const container = document.getElementById('reminders-container');
+      container.innerHTML = '';
+
+      const recurringTx = transactions.filter(t => t.recurring !== 'no');
+      if (recurringTx.length === 0) {
+        container.innerHTML = `<p class="text-[10px] text-slate-500 italic">Nessun addebito ricorrente imminente.</p>`;
+        return;
+      }
+
+      recurringTx.forEach(tx => {
+        const item = document.createElement('div');
+        item.className = 'bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3 flex items-center justify-between shadow-sm';
+        item.innerHTML = `
+          <div class="flex items-center gap-2.5">
+            <span class="bg-yellow-500 text-[#0B131A] text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded">Rinnovo</span>
+            <div>
+              <p class="text-xs font-bold text-slate-200">${tx.desc}</p>
+              <p class="text-[9px] text-yellow-500 font-semibold">Mensile automatizzato</p>
+            </div>
+          </div>
+          <p class="text-xs font-bold text-slate-100">-${tx.amount.toFixed(2)} €</p>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    // Filtro e Visualizzazione Categorie
+    let selectedCategoryFilter = null;
+    function filterByCategory(catName) {
+      selectedCategoryFilter = catName;
+      document.getElementById('filter-category-title').innerText = `Dettaglio Spese: ${catName}`;
+      document.getElementById('clear-filter-btn').classList.remove('hidden');
+
+      const container = document.getElementById('category-transactions-container');
+      container.innerHTML = '';
+
+      const filtered = transactions.filter(t => t.category === catName);
+      if (filtered.length === 0) {
+        container.innerHTML = `<p class="text-[10px] text-slate-500 italic">Nessun movimento inserito per questa categoria.</p>`;
+        return;
+      }
+
+      filtered.forEach(t => {
+        const item = document.createElement('div');
+        item.className = 'bg-[#131E29] border border-slate-800 rounded-xl p-3 flex items-center justify-between';
+        
+        let colorClass = t.type === 'entrata' ? 'text-emerald-400' : 'text-red-400';
+        let prefix = t.type === 'entrata' ? '+' : '-';
+
+        item.innerHTML = `
+          <div class="flex items-center gap-2.5">
+            <span class="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400">${t.createdBy}</span>
+            <div>
+              <p class="text-xs font-bold text-slate-100">${t.desc}</p>
+              <p class="text-[9px] text-slate-400">${t.date}</p>
+            </div>
+          </div>
+          <span class="text-xs font-bold ${colorClass}">${prefix}${t.amount.toFixed(2)} €</span>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function clearCategoryFilter() {
+      selectedCategoryFilter = null;
+      document.getElementById('filter-category-title').innerText = 'Seleziona una categoria per vedere i dettagli';
+      document.getElementById('clear-filter-btn').classList.add('hidden');
+      document.getElementById('category-transactions-container').innerHTML = '';
+    }
+
+    // Update Lista Completa Movimenti con Ricerca e Filtro Categoria
+    function updateTransactionsList() {
+      const container = document.getElementById('all-transactions-container');
+      container.innerHTML = '';
+      
+      const searchVal = document.getElementById('search-tx').value.toLowerCase();
+      const catVal = document.getElementById('filter-category').value;
+
+      let filtered = transactions;
+
+      if (searchVal) {
+        filtered = filtered.filter(t => t.desc.toLowerCase().includes(searchVal));
+      }
+
+      if (catVal !== 'ALL') {
+        filtered = filtered.filter(t => t.category === catVal);
+      }
+
+      document.getElementById('total-transactions-count').innerText = filtered.length;
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<p class="text-center py-6 text-xs text-slate-500 italic">Nessuna transazione trovata.</p>`;
+        return;
+      }
+
+      filtered.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(t => {
+        const row = document.createElement('div');
+        row.className = 'px-4 py-3 flex justify-between items-center hover:bg-slate-800/40 transition';
+        
+        let colorClass = t.type === 'entrata' ? 'text-emerald-400' : 'text-red-400';
+        let prefix = t.type === 'entrata' ? '+' : '-';
+
+        // Se è un Giroconto/Trasferimento
+        if (t.category === 'Giroconto') {
+          colorClass = 'text-yellow-400';
+          prefix = '⇅ ';
+        }
+
+        row.innerHTML = `
+          <div class="flex items-center gap-3">
+            <span class="text-[9px] font-extrabold uppercase tracking-wider px-2 py-1 rounded bg-[#0B131A] text-slate-300 border border-slate-800/80">${t.createdBy}</span>
+            <div>
+              <p class="text-xs font-bold text-slate-100">${t.desc}</p>
+              <p class="text-[9px] text-slate-500 flex items-center gap-1.5">
+                <span>${t.date}</span> • <span class="uppercase font-bold text-[#EAB308]">${t.category}</span>
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2.5">
+            <span class="text-xs font-bold ${colorClass}">${prefix}${t.amount.toFixed(2)} €</span>
+            <button onclick="deleteTransaction('${t.id}')" class="p-1 text-slate-600 hover:text-red-400 rounded-lg hover:bg-slate-800 transition">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+      lucide.createIcons();
+    }
+
+    // Gestione Apertura/Chiusura Modali
+    function openContoModal() { document.getElementById('conto-modal').classList.remove('hidden'); }
+    function closeContoModal() { document.getElementById('conto-modal').classList.add('hidden'); }
+    
+    function openObiettivoModal() { document.getElementById('obiettivo-modal').classList.remove('hidden'); }
+    function closeObiettivoModal() { document.getElementById('obiettivo-modal').classList.add('hidden'); }
+
+    function openTransazioneModal() { document.getElementById('transazione-modal').classList.remove('hidden'); }
+    function closeTransazioneModal() { document.getElementById('transazione-modal').classList.add('hidden'); }
+
+    function openMemberModal() { document.getElementById('member-modal').classList.remove('hidden'); }
+    function closeMemberModal() { document.getElementById('member-modal').classList.add('hidden'); }
+
+    function openTransferModal() { 
+      populateTransferSelectors();
+      document.getElementById('transfer-modal').classList.remove('hidden'); 
+    }
+    function closeTransferModal() { document.getElementById('transfer-modal').classList.add('hidden'); }
+
+    function setTransactionType(type) {
+      currentTxType = type;
+      const bUscita = document.getElementById('btn-type-uscita');
+      const bEntrata = document.getElementById('btn-type-entrata');
+      if (type === 'uscita') {
+        bUscita.className = "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 rounded-lg py-1.5 text-xs font-bold";
+        bEntrata.className = "bg-slate-800 text-slate-400 border border-transparent rounded-lg py-1.5 text-xs font-bold";
+      } else {
+        bEntrata.className = "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-lg py-1.5 text-xs font-bold";
+        bUscita.className = "bg-slate-800 text-slate-400 border border-transparent rounded-lg py-1.5 text-xs font-bold";
+      }
+    }
+
+    function populateAccountSelectors() {
+      const selector = document.getElementById('tx-account');
+      selector.innerHTML = '';
+      accounts.forEach(acc => {
+        selector.innerHTML += `<option value="${acc.id}">${acc.name} (${acc.balance.toFixed(2)}€)</option>`;
+      });
+    }
+
+    function populateTransferSelectors() {
+      const fromSel = document.getElementById('transfer-from-account');
+      const toSel = document.getElementById('transfer-to-account');
+      fromSel.innerHTML = '';
+      toSel.innerHTML = '';
+      accounts.forEach(acc => {
+        fromSel.innerHTML += `<option value="${acc.id}">${acc.name} (${acc.balance.toFixed(2)}€)</option>`;
+        toSel.innerHTML += `<option value="${acc.id}">${acc.name} (${acc.balance.toFixed(2)}€)</option>`;
+      });
+    }
+
+    // Salvataggio Conto
+    function saveConto() {
+      const name = document.getElementById('conto-name').value.trim();
+      const val = parseFloat(document.getElementById('conto-balance').value);
+      const type = document.getElementById('conto-type').value;
+
+      if (!name || isNaN(val)) {
+        showNotification("Compila tutti i campi!", "error");
+        return;
+      }
+
+      accounts.push({ id: 'acc_' + Date.now(), name, balance: val, type });
+      localStorage.setItem('fam_accounts', JSON.stringify(accounts));
+      
+      closeContoModal();
+      initApp();
+      showNotification("Nuovo conto salvato con successo!");
+    }
+
+    // Salvataggio Obiettivo di Risparmio
+    function saveObiettivo() {
+      const name = document.getElementById('obiettivo-name').value.trim();
+      const current = parseFloat(document.getElementById('obiettivo-balance').value);
+      const goal = parseFloat(document.getElementById('obiettivo-goal').value);
+
+      if (!name || isNaN(current) || isNaN(goal)) {
+        showNotification("Dati incompleti!", "error");
+        return;
+      }
+
+      accounts.push({
+        id: 'acc_' + Date.now(),
+        name,
+        balance: current,
+        goalAmount: goal,
+        type: 'risparmio'
+      });
+      localStorage.setItem('fam_accounts', JSON.stringify(accounts));
+
+      closeObiettivoModal();
+      initApp();
+      showNotification("Nuovo obiettivo salvato con successo!");
+    }
+
+    // Salvataggio Nuova Transazione ordinaria
+    function saveTransazione() {
+      const desc = document.getElementById('tx-desc').value.trim();
+      const val = parseFloat(document.getElementById('tx-amount').value);
+      const accId = document.getElementById('tx-account').value;
+      const cat = document.getElementById('tx-category').value;
+      const recurring = document.getElementById('tx-recurring').value;
+
+      if (!desc || isNaN(val) || val <= 0) {
+        showNotification("Inserisci dati corretti!", "error");
+        return;
+      }
+
+      const acc = accounts.find(a => a.id === accId);
+      if (acc) {
+        if (currentTxType === 'uscita') {
+          acc.balance -= val;
+        } else {
+          acc.balance += val;
+        }
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+
+      transactions.push({
+        id: 'tx_' + Date.now(),
+        desc,
+        amount: val,
+        type: currentTxType,
+        category: cat,
+        date: today,
+        createdBy: activeUser,
+        accountId: accId,
+        recurring
+      });
+
+      localStorage.setItem('fam_accounts', JSON.stringify(accounts));
+      localStorage.setItem('fam_transactions', JSON.stringify(transactions));
+
+      closeTransazioneModal();
+      initApp();
+      showNotification("Transazione inserita correttamente.");
+    }
+
+    // Salvataggio Giroconto (Trasferimento Diretto)
+    function saveTransfer() {
+      const fromAccId = document.getElementById('transfer-from-account').value;
+      const toAccId = document.getElementById('transfer-to-account').value;
+      const amt = parseFloat(document.getElementById('transfer-amount').value);
+
+      if (fromAccId === toAccId) {
+        showNotification("Seleziona due conti diversi!", "error");
+        return;
+      }
+      if (isNaN(amt) || amt <= 0) {
+        showNotification("Importo non valido!", "error");
+        return;
+      }
+
+      const fromAcc = accounts.find(a => a.id === fromAccId);
+      const toAcc = accounts.find(a => a.id === toAccId);
+
+      if (fromAcc && toAcc) {
+        if (fromAcc.balance < amt) {
+          showNotification("Saldo insufficiente sul conto di origine!", "error");
+          return;
+        }
+
+        fromAcc.balance -= amt;
+        toAcc.balance += amt;
+
+        const today = new Date().toISOString().split('T')[0];
+        // Registriamo la transazione per tracciabilità
+        transactions.push({
+          id: 'tx_' + Date.now(),
+          desc: `Giroconto: ${fromAcc.name} ➔ ${toAcc.name}`,
+          amount: amt,
+          type: 'uscita', // Trattato in modo neutro ma scalato da origine
+          category: 'Giroconto',
+          date: today,
+          createdBy: activeUser,
+          accountId: fromAccId,
+          recurring: 'no'
+        });
+
+        localStorage.setItem('fam_accounts', JSON.stringify(accounts));
+        localStorage.setItem('fam_transactions', JSON.stringify(transactions));
+
+        closeTransferModal();
+        initApp();
+        showNotification("Giroconto eseguito con successo!");
+      }
+    }
+
+    // Salva Nuovo Membro
+    function saveMember() {
+      const name = document.getElementById('new-member-name').value.trim();
+      if (!name) {
+        showNotification("Inserisci un nome valido!", "error");
+        return;
+      }
+      if (familyMembers.includes(name)) {
+        showNotification("Questo membro esiste già!", "error");
+        return;
+      }
+
+      familyMembers.push(name);
+      localStorage.setItem('fam_members', JSON.stringify(familyMembers));
+      updateUserSelector();
+      closeMemberModal();
+      showNotification(`${name} aggiunto alla famiglia!`);
+    }
+
+    // Rendering Calendario Mensile Dinamico
+    function navigateMonth(direction) {
+      calendarDate.setMonth(calendarDate.getMonth() + direction);
+      renderCalendar();
+    }
+
+    function renderCalendar() {
+      const year = calendarDate.getFullYear();
+      const month = calendarDate.getMonth();
+      
+      const nomiMesi = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
+      document.getElementById('calendar-month-title').innerText = `${nomiMesi[month]} ${year}`;
+
+      const grid = document.getElementById('calendar-days-grid');
+      grid.innerHTML = '';
+
+      // Primo giorno del mese e quanti giorni ci sono
+      const firstDayIdx = new Date(year, month, 1).getDay(); // 0 è Domenica, convertiamo in Lun-Dom
+      const firstDayOfCalendar = firstDayIdx === 0 ? 6 : firstDayIdx - 1; // Allineiamo a Lunedì = 0
+      const totalDays = new Date(year, month + 1, 0).getDate();
+
+      // Giorni vuoti iniziali
+      for (let i = 0; i < firstDayOfCalendar; i++) {
+        const spacer = document.createElement('span');
+        grid.appendChild(spacer);
+      }
+
+      // Generazione giorni reali
+      for (let day = 1; day <= totalDays; day++) {
+        const btn = document.createElement('button');
+        const formattedDay = String(day).padStart(2, '0');
+        const formattedMonth = String(month + 1).padStart(2, '0');
+        const dateString = `${year}-${formattedMonth}-${formattedDay}`;
+
+        // Controlliamo se ci sono transazioni in questo giorno specifico
+        const hasTxs = transactions.some(t => t.date === dateString);
+
+        btn.className = `text-xs py-1.5 rounded-lg text-slate-400 hover:bg-slate-800 transition relative flex items-center justify-center font-semibold`;
+        btn.innerText = day;
+
+        // Evidenzia oggi
+        const today = new Date();
+        if (today.getDate() === day && today.getMonth() === month && today.getFullYear() === year) {
+          btn.className += ` bg-cyan-500/20 text-cyan-400 font-bold border border-cyan-500/40`;
+        }
+
+        // Indicatore puntiforme se ci sono transazioni
+        if (hasTxs) {
+          const dot = document.createElement('span');
+          dot.className = 'absolute bottom-1 w-1.5 h-1.5 bg-yellow-500 rounded-full';
+          btn.appendChild(dot);
+          btn.onclick = () => {
+            // Se clicca, naviga alla lista e filtra
+            switchTab('lista');
+            document.getElementById('search-tx').value = '';
+            document.getElementById('filter-category').value = 'ALL';
+            updateTransactionsList();
+            showNotification(`Mostrate transazioni del ${formattedDay}/${formattedMonth}`, "info");
+          };
+        }
+
+        grid.appendChild(btn);
+      }
+    }
+
+    // Rendering Grafici Avanzati
+    function renderStatsCharts() {
+      const ctxElement = document.getElementById('categoryPieChart');
+      if (!ctxElement) return;
+
+      const ctx = ctxElement.getContext('2d');
+      if (statsChart) {
+        statsChart.destroy();
+      }
+
+      const selectedYear = document.getElementById('stats-year').value;
+      const selectedMonth = document.getElementById('stats-month').value;
+
+      let filtered = transactions.filter(t => t.type === 'uscita');
+      if (selectedMonth !== 'ALL') {
+        filtered = filtered.filter(t => t.date.startsWith(`${selectedYear}-${selectedMonth}`));
+      } else {
+        filtered = filtered.filter(t => t.date.startsWith(selectedYear));
+      }
+
+      const categoryTotals = {};
+      const userTotals = {};
+
+      filtered.forEach(t => {
+        categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
+        userTotals[t.createdBy] = (userTotals[t.createdBy] || 0) + t.amount;
+      });
+
+      const labels = Object.keys(categoryTotals);
+      const dataValues = Object.values(categoryTotals);
+
+      const colorPalette = ['#EAB308', '#06B6D4', '#8B5CF6', '#EF4444', '#10B981'];
+
+      // Generazione custom legend
+      const legendContainer = document.getElementById('stats-chart-legend');
+      legendContainer.innerHTML = '';
+      labels.forEach((label, idx) => {
+        const color = colorPalette[idx % colorPalette.length];
+        legendContainer.innerHTML += `
+          <div class="flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${color}"></span>
+            <span class="truncate">${label}: ${categoryTotals[label].toFixed(2)}€</span>
+          </div>
+        `;
+      });
+
+      statsChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: dataValues,
+            backgroundColor: colorPalette,
+            borderWidth: 0
+          }]
+        },
+        options: {
+          plugins: {
+            legend: { display: false }
+          },
+          cutout: '72%',
+          responsive: true,
+          maintainAspectRatio: false
+        }
+      });
+
+      // Distribuzione utenti
+      const uContainer = document.getElementById('users-distribution-container');
+      uContainer.innerHTML = '';
+
+      familyMembers.forEach(u => {
+        const amt = userTotals[u] || 0;
+        const totalOut = Object.values(userTotals).reduce((a, b) => a + b, 0);
+        const percent = totalOut > 0 ? (amt / totalOut) * 100 : 0;
+
+        uContainer.innerHTML += `
+          <div>
+            <div class="flex justify-between text-xs font-semibold mb-1">
+              <span class="text-slate-100">${u}</span>
+              <span class="text-slate-300 font-bold">${amt.toFixed(2)} € (${percent.toFixed(0)}%)</span>
+            </div>
+            <div class="w-full bg-[#0B131A] h-2 rounded-full overflow-hidden">
+              <div class="bg-[#EAB308] h-full" style="width: ${percent}%"></div>
+            </div>
+          </div>
+        `;
+      });
+    }
+  </script>
+</body>
+</html>
